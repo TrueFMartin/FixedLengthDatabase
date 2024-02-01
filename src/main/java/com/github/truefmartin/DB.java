@@ -1,10 +1,7 @@
 package com.github.truefmartin;
 
-import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 
 public class DB {
@@ -151,7 +148,7 @@ public class DB {
     while (!Found && (High >= Low)) {
       Middle = (Low + High) / 2;
       record = readRecord(Middle);
-      String MiddleId = record.Id;
+      String MiddleId = record.passengerId;
 
       // int result = MiddleId[0].compareTo(id); // DOES STRING COMPARE
       int result = Integer.parseInt(MiddleId) - Integer.parseInt(id); // DOES INT COMPARE of MiddleId[0] and id

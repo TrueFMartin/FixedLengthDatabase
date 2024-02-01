@@ -31,7 +31,7 @@ public class Main {
         int record_num = 0;
         record = new Record();
         record = db.readRecord(record_num);
-        if (!record.isEmpty())
+        if (record.isPopulated())
             System.out.println("RecordNum " + record_num + ": " + record.toString() + "\n\n");
         else {
             System.out.println("Could not get Record " + record_num);
@@ -41,7 +41,7 @@ public class Main {
         // Reads record 9 (last record)
         record_num = DB.NUM_RECORDS - 1;
         record = db.readRecord(record_num);
-        if (!record.isEmpty())
+        if (record.isPopulated())
             System.out.println("RecordNum " + record_num + ": " + record.toString() + "\n\n");
         else {
             System.out.println("Could not get Record " + record_num);
