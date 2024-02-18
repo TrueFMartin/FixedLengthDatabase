@@ -124,7 +124,9 @@ public class Control {
                 break;
             }
             case QUIT:
-                dataBase.close();
+                try {
+                    dataBase.close();
+                } catch(DatabaseIsClosedException ignored) {}
                 break;
             case ERROR:
                 break;
