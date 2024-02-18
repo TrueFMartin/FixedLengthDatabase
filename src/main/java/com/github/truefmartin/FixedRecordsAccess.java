@@ -16,7 +16,7 @@ import java.util.Arrays;
 /**
  * The type Raf table.
  *
- * @param <T> the type parameter
+ * @param <T> the type parameter that implements Writeable
  */
 public class FixedRecordsAccess<T extends Writeable> implements AutoCloseable {
     private static final Logger logger = LogManager.getLogger(FixedRecordsAccess.class);
@@ -167,20 +167,38 @@ public class FixedRecordsAccess<T extends Writeable> implements AutoCloseable {
         try {
             long currentPosition = stream.getFilePointer();
             stream.seek((long) row * RECORD_SIZE);
-            write(data);
+            write(data, true);
             stream.seek(currentPosition);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
     }
 
     /**
-     * Write.
+     * Write to a specific row in the RAF. The file write position is returned to the
+     * location it was before this write. Does not increase FixedRecordAccess's total count of records
+     *
+     * @param data the data to write, of type Writeable
+     * @param row  the row to write on
+     */
+    public void update(T data, int row) {
+        try {
+            long currentPosition = stream.getFilePointer();
+            stream.seek((long) row * RECORD_SIZE);
+            write(data, false);
+            stream.seek(currentPosition);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Write a record to file at current file pointer.
      *
      * @param data the data
+     * @param increaseNumRecord should increase numRecords
      */
-    public void write(T data) {
+    public void write(T data, boolean increaseNumRecord) {
         try {
             StringBuilder stringBuilder = new StringBuilder(RECORD_SIZE);
             for(int size: colSizes) {
@@ -200,7 +218,9 @@ public class FixedRecordsAccess<T extends Writeable> implements AutoCloseable {
             }
             stringBuilder.append('\n');
             stream.write(stringBuilder.toString().getBytes());
-            numRecords += 1;
+            if (increaseNumRecord) {
+                numRecords += 1;
+            }
         } catch (IOException | ColumnBoundsException e) {
             throw new RuntimeException(e);
         }
@@ -248,6 +268,9 @@ public class FixedRecordsAccess<T extends Writeable> implements AutoCloseable {
             stream.seek((long) recordNum * RECORD_SIZE);
             String row = stream.readLine();
             // Populate record with row data
+            if (row == null) {
+                return false;
+            }
             assignRecord(data, row);
         } catch (IOException | ColumnBoundsException e) {
             throw new RuntimeException(e);
@@ -269,7 +292,6 @@ public class FixedRecordsAccess<T extends Writeable> implements AutoCloseable {
             throw new RowBoundsException("search for " + recordNum + " is out of bounds from table with size " + numRecords);
         }
 
-        boolean foundNonEmpty = false;
         try {
             stream.seek((long) recordNum * RECORD_SIZE);
             String row = stream.readLine();
@@ -309,7 +331,7 @@ public class FixedRecordsAccess<T extends Writeable> implements AutoCloseable {
      *                  during reading with the results
      * @return false if record num is outside of bounds
      */
-    public boolean readBatch(int recordNum, T[] data) throws RowBoundsException, ColumnBoundsException{
+    public boolean readBatch(int recordNum, T[] data, boolean ignoreEmpty) throws RowBoundsException, ColumnBoundsException{
         if ((recordNum < 0) || (recordNum >= numRecords)) {
             return false;
         }
@@ -329,6 +351,10 @@ public class FixedRecordsAccess<T extends Writeable> implements AutoCloseable {
                 if (relativeIndex >= data.length) {
                     break;
                 }
+                if (ignoreEmpty && row.substring(0, colSizes[0]).trim().equals("-1")) {
+                    continue;
+                }
+
                 int columnCharIndex = 0;
                 for (int columnSize : colSizes) {
                     if (!data[relativeIndex].hasNext()) {
@@ -399,6 +425,31 @@ public class FixedRecordsAccess<T extends Writeable> implements AutoCloseable {
             throw new RuntimeException(e);
         }
     }
+
+    // Returns the row number of the next empty (above or below), updates Data with the last found
+    // non-empty record
+    public int findNextEmpty(int recordNumStart, T data, boolean searchUp) {
+        if ((recordNumStart < 0) || (recordNumStart >= numRecords)) {
+            return -1;
+        }
+        try {
+            int currentRecord = recordNumStart;
+            String row;
+            while((row = stream.readLine()) != null) {
+            stream.seek((long) currentRecord * RECORD_SIZE);
+                if (row.substring(0, colSizes[0]).trim().equals("-1")) {
+                    return currentRecord;
+                }
+                assignRecord(data, row);
+                // If searching down,
+                currentRecord = searchUp ? currentRecord + 1: currentRecord - 1;
+            }
+            return -1;
+        } catch (IOException | ColumnBoundsException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 
     /**
      * Close file

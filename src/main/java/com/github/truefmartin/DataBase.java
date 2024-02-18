@@ -16,7 +16,6 @@ public class DataBase {
     private boolean isOpen = false;
     private FixedRecordsAccess<TitanicRecord> fileAccess;
     private int numRecords;
-    private String fileName;
 
 
     /**
@@ -46,7 +45,6 @@ public class DataBase {
         }
         fileAccess = new FixedRecordsAccess<>(fileName + ".config", fileName + ".data", FixedRecordsAccess.FileStatus.WRITE);
         this.isOpen = true;
-        this.fileName = fileName;
         this.numRecords = fileAccess.getNumRecords();
         logger.info("opened a database file of name {}, with numRecords {}", fileName, numRecords);
         return true;
@@ -68,20 +66,21 @@ public class DataBase {
      * Find record by passenger id. Returns null if not found.
      *
      * @param passengerId the passenger id
-     * @return the titanic record or null if not found.
+     * @return the titanic record or an empty record if none found. Set's record's row to the place the
+     * ID was found or should have found. Will be negative if not found.
      * @throws DatabaseIsClosedException the database is closed exception if this method is called when the
      * database is closed.
      */
-    public TitanicRecord findRecord(String passengerId) throws DatabaseIsClosedException {
+    public BinarySearchResult findRecord(String passengerId) throws DatabaseIsClosedException, RowBoundsException {
         if (!isOpen) {
             throw new DatabaseIsClosedException("database is closed, unable to read row");
         }
-        int[] location = new int[]{-1};
-        var record = binarySearch(passengerId, location);
-        if (location[0] == -1) {
-            return null;
+        int id = Integer.parseInt(passengerId);
+
+        if (id < 0) {
+            throw new RowBoundsException("id is negative, " + passengerId);
         }
-        return record;
+        return binarySearch(passengerId);
     }
 
     public TitanicRecord[] getReport() throws DatabaseIsClosedException, RowBoundsException {
@@ -93,7 +92,7 @@ public class DataBase {
             records[i] = new TitanicRecord();
         }
         try {
-            fileAccess.readBatch(0, records);
+            fileAccess.readBatch(0, records, true);
         } catch (ColumnBoundsException e) {
             logger.error("incorrect column size from get report");
             throw new RuntimeException(e);
@@ -101,39 +100,157 @@ public class DataBase {
         return records;
     }
 
+    public boolean updateRecord(TitanicRecord record) throws DatabaseIsClosedException {
+        if (!isOpen) {
+            throw new DatabaseIsClosedException("attempted to update record while database is closed");
+        }
+        if (record.getRowNum() >= numRecords || record.getRowNum() < 0) {
+            return false;
+        }
+        fileAccess.update(record, record.getRowNum());
+        return true;
+    }
+
+    public boolean deleteRecord(TitanicRecord record) throws DatabaseIsClosedException {
+        if (!isOpen) {
+            throw new DatabaseIsClosedException("attempted to delete row while database closed");
+        }
+        if (record.getRowNum() >= numRecords || record.getRowNum() < 0) {
+            return false;
+        }
+        fileAccess.update(new TitanicRecord(), record.getRowNum());
+        return true;
+    }
+
+    public boolean addRecord(TitanicRecord record) throws DatabaseIsClosedException, RowBoundsException, ColumnBoundsException {
+        if (!isOpen) {
+            throw new DatabaseIsClosedException("attempted to add record while database closed");
+        }
+        if (Integer.parseInt(record.passengerId) < 0) {
+            throw new RowBoundsException("record IDs can not be negative");
+        }
+        var searchResult = findInsertRow(record.passengerId);
+        if (searchResult == -2) {
+            throw new RowBoundsException("a record by that ID is already present");
+        }
+        if (searchResult == -1) {
+            throw new RowBoundsException("there is no room for that record, please delete a record first");
+        }
+        fileAccess.write(record, searchResult);
+        return true;
+    }
 
     /**
      * Close the currently open database and write to config file if anything has changed.
      */
-    public void close() {
+    public void close() throws DatabaseIsClosedException {
         if (!isOpen) {
-            return;
+            throw new DatabaseIsClosedException("attempted to close database while one is not open");
         }
         fileAccess.writeConfigs();
         fileAccess.close();
         isOpen = false;
         fileAccess = null;
+        numRecords = 0;
     }
 
     public boolean isOpen() {
         return isOpen;
     }
 
+    public static class BinarySearchResult {
+        TitanicRecord record;
+        int rowFound;
+        boolean isFound;
+        public BinarySearchResult(TitanicRecord record, int rowFound, boolean isFound) {
+            this.record = record;
+            this.rowFound = rowFound;
+            this.isFound = isFound;
+        }
+
+    }
+
     /**
      * Binary Search by record id
      *
      * @param id record key to search for
-     * @param location an int array of size 1, if record is found its row number is stored in position 0 in 'location'
-     * @return the record found
+     * @return the record found, will assign row number if it was found
      */
-    public TitanicRecord binarySearch(String id, int[] location) throws DatabaseIsClosedException {
+    public BinarySearchResult binarySearch(String id) {
         int low = 0;
         int high = numRecords - 1;
         int middle = 0;
         boolean isFound = false;
         boolean isNotEmpty = true;
+        boolean searchDownIfEmpty = true;
+        int diff = 0;
+        int intID = Integer.parseInt(id);
+        TitanicRecord record = new TitanicRecord();
+        BinarySearchResult result = new BinarySearchResult(record, -1, false);
+        while (!isFound && (high >= low)) {
+            middle = (low + high) / 2;
+            try {
+                while ( middle >= low && middle <= high) {
+                    isNotEmpty = fileAccess.readFalseOnEmpty(middle, record);
+                    if (isNotEmpty) {
+                        // Everytime a record is found that is not empty, reset 'searchDownIfEmpty' so that next loop we
+                        // will first decrement middle, before incrementing it if no non-empty records found.
+                        searchDownIfEmpty = true;
+                        break;
+                    }
+                    if (searchDownIfEmpty) {
+                        middle--;
+                    } else {
+                        middle++;
+                    }
+                }
+            } catch (RowBoundsException e) {
+                logger.fatal("binary search went out of bounds with {}, in table of size {}", middle, numRecords);
+                throw new RuntimeException(e);
+            }
+            // If after searching down from middle we could not find a non-empty record, search up from middle
+            if (!isNotEmpty) {
+                // If we have already tried searching up and down, break out of main loop.
+                if (!searchDownIfEmpty) {
+                    break;
+                }
+                searchDownIfEmpty = false;
+                continue;
+            }
+            String MiddleId = record.passengerId;
+            diff = Integer.parseInt(MiddleId) - intID;
+            // If record is found, end loop and return record
+            if (diff == 0) {
+                isFound = true;
+            } else if (diff < 0) {
+                low = middle + 1;
+            } else {
+                high = middle - 1;
+            }
+        }
+        fileAccess.read(middle, record);
+        result.rowFound = middle;
+        result.record = record;
+        result.isFound = isFound;
+        return result;
+    }
+
+    /**
+     * Binary Search by record id, finding an empty row to insert an entry.
+     *
+     * @param id record key to search for
+     * @return the row to insert a record into. -1 if no surrounding empty space, -2 if already present.
+     */
+    public int findInsertRow(String id) throws RowBoundsException, ColumnBoundsException {
+        int low = 0;
+        int high = numRecords - 1;
+        int middle = 0;
+        boolean isFound = false;
+        boolean isNotEmpty = true;
+        int intID = Integer.parseInt(id);
         TitanicRecord record = new TitanicRecord();
         boolean searchDownIfEmpty = true;
+        int diff = 0; // DOES INT COMPARE of MiddleId[0] and id
         while (!isFound && (high >= low)) {
             middle = (low + high) / 2;
             try {
@@ -165,21 +282,50 @@ public class DataBase {
                 continue;
             }
             String MiddleId = record.passengerId;
-            // int result = MiddleId[0].compareTo(id); // DOES STRING COMPARE
-            int result = Integer.parseInt(MiddleId) - Integer.parseInt(id); // DOES INT COMPARE of MiddleId[0] and id
+            diff = Integer.parseInt(MiddleId) - intID;
             // If record is found, end loop and return record
-            if (result == 0) {
+            if (diff == 0) {
                 isFound = true;
-            } else if (result < 0) {
+            } else if (diff < 0) {
                 low = middle + 1;
             } else {
                 high = middle - 1;
             }
         }
         if (isFound) {
-            location[0] = middle;
-            return record;
+            return -2;
         }
-        return null;
+        int batchSize = 6;
+        int startBatch = Math.max(0, middle - (batchSize/2));
+        if (startBatch + batchSize >= numRecords) {
+            batchSize = numRecords - startBatch;
+        }
+        var surrounding = new TitanicRecord[batchSize];
+        for (int i = 0; i < surrounding.length; i++)
+            surrounding[i] = new TitanicRecord();
+        fileAccess.readBatch(startBatch, surrounding, false);
+        int above = Integer.MAX_VALUE;
+        int below = -1;
+        int empty = Integer.MAX_VALUE;
+        // Find best place within a small section to place new entry
+        for (int i = 0; i < batchSize; i++) {
+            var currRec = surrounding[i];
+            if (currRec.isFirstFieldEmpty()) {
+                empty = i;
+            } else if (Integer.parseInt(currRec.passengerId) == intID) {
+                return -2;
+            } else if (Integer.parseInt(currRec.passengerId) > intID) {
+                above = i;
+                break;
+            } else {
+                below = i;
+            }
+        }
+        if (empty > below && empty < above) {
+            return startBatch+empty;
+        } else {
+            return -1;
+        }
     }
+
 }

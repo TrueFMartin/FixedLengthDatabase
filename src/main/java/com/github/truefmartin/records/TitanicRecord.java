@@ -16,7 +16,6 @@ public class TitanicRecord extends Writeable implements Comparable<TitanicRecord
     public String purchaseDate;
     private boolean empty;
 
-
     public TitanicRecord () {
         super("-1", "", "", "", "", "", "");
         empty = true;
@@ -65,7 +64,7 @@ public class TitanicRecord extends Writeable implements Comparable<TitanicRecord
      * @return true if record has been updated otherwise false
      */
     public boolean isPopulated() {
-        return !empty && !Objects.equals(passengerId, "-1") && !Objects.equals(passengerId, "");
+        return !isEmpty();
     }
 
     @Override
@@ -91,7 +90,7 @@ public class TitanicRecord extends Writeable implements Comparable<TitanicRecord
 
     @Override
     public void reassignFields() {
-        assign(columns);
+        assign(attributes);
         empty = Objects.equals(passengerId, "-1") || Objects.equals(passengerId, "");
     }
 
@@ -112,6 +111,26 @@ public class TitanicRecord extends Writeable implements Comparable<TitanicRecord
 
     @Override
     public boolean isEmpty() {
-        return !isPopulated();
+        return empty || Objects.equals(passengerId, "-1") || Objects.equals(passengerId, "");
     }
+
+    @Override
+    public void printAttributeNames() {
+        System.out.println("0) Passenger ID, 1) Last name, 2) First Name, 3) Age,\n" +
+                "4) Ticket Number, 5) Ticket Fare, 6) Purchase Date");
+    }
+
+    @Override
+    protected void initAttributeNames() {
+        this.attributeNames = new String[]{
+                "Passenger ID",
+                "Last Name",
+                "First Name",
+                "Age",
+                "Ticket Number",
+                "Ticket Fare",
+                "Purchase Date"
+        };
+    }
+
 }

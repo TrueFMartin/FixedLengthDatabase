@@ -11,10 +11,10 @@ public class Menu {
         MenuOption optionClose = new MenuOption("3) Close an open database", "", Selection.CLOSE);
         MenuOption optionRead = new MenuOption("4) Read a record by row NUMBER", "Enter row number: ", Selection.READ);
         MenuOption optionDisplay = new MenuOption("5) Display a record by row KEY", "Enter key: ", Selection.DISPLAY);
-        MenuOption optionReport = new MenuOption("6) Display first 10 records", "Displaying first 10 rows.\n", Selection.REPORT);
+        MenuOption optionReport = new MenuOption("6) Display first 10 NON-EMPTY records", "Displaying first 10 rows.\n", Selection.REPORT);
         MenuOption optionUpdate = new MenuOption("7) Update a record by row KEY", "Enter key: ", Selection.UPDATE);
-        MenuOption optionDelete = new MenuOption("8) Delete a record by row NUMBER", "Enter row number: ", Selection.DELETE);
-        MenuOption optionAdd = new MenuOption("9) Add a record to the database", "Enter row number: ", Selection.ADD);
+        MenuOption optionDelete = new MenuOption("8) Delete a record by row KEY", "Enter key number: ", Selection.DELETE);
+        MenuOption optionAdd = new MenuOption("9) Add a record to the database", "", Selection.ADD);
         MenuOption optionQuit = new MenuOption("0) Quit", "", Selection.QUIT);
 
         menuMap = new LinkedHashMap<>(10);

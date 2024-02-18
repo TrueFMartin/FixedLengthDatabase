@@ -173,7 +173,7 @@ class WriteFixedFile implements Callable<Integer> {
                 break;
             }
             // Write record
-            writer.write(record);
+            writer.write(record, true);
             // Write empty block
             writer.writeEmpty();
             numRead++;

@@ -30,5 +30,4 @@ public class Main {
         ArtIntro.Settings settings = new ArtIntro.Settings(new Font(Font.SANS_SERIF, Font.PLAIN, 17), 140, 16);
         artIntro.drawString("D A T A B A S E", "*", settings);
     }
-
 }

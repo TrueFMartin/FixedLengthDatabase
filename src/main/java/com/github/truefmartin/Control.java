@@ -1,14 +1,14 @@
 package com.github.truefmartin;
 
+import com.github.truefmartin.exceptions.ColumnBoundsException;
 import com.github.truefmartin.exceptions.DatabaseIsClosedException;
 import com.github.truefmartin.exceptions.RowBoundsException;
+import com.github.truefmartin.records.TitanicRecord;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.FileNotFoundException;
-import java.util.Arrays;
-import java.util.InputMismatchException;
-import java.util.Scanner;
+import java.util.*;
 
 public class Control {
 
@@ -33,7 +33,7 @@ public class Control {
             selection = menu.getSelection();
             try {
                 menuResponse(selection);
-            } catch (RowBoundsException | DatabaseIsClosedException | FileNotFoundException e) {
+            } catch (RowBoundsException | ColumnBoundsException | DatabaseIsClosedException | FileNotFoundException e) {
                 logger.error("input caused the following error: {}", e.getMessage());
             }
         }
@@ -43,7 +43,7 @@ public class Control {
      * Calls database methods depending on passed in menu selection. Throws exceptions from the database.
      * Reads input from user to pass to database.
      */
-    private void menuResponse(Menu.Selection selection) throws RowBoundsException, DatabaseIsClosedException, InputMismatchException, FileNotFoundException {
+    private void menuResponse(Menu.Selection selection) throws RowBoundsException, DatabaseIsClosedException, InputMismatchException, FileNotFoundException, ColumnBoundsException {
         Scanner scanner = new Scanner(System.in);
         switch (selection) {
             case CREATE:
@@ -66,7 +66,7 @@ public class Control {
                 dataBase.close();
                 System.out.println("Database closed.");
                 break;
-            case READ:
+            case READ: {
                 int row;
                 try {
                     row = scanner.nextInt();
@@ -78,24 +78,51 @@ public class Control {
                     record.print();
                 }
                 break;
+            }
             case DISPLAY:
-                String id = scanner.nextLine();
-                var found = dataBase.findRecord(id);
-                if (found == null || found.isEmpty()) {
-                    System.out.println("\t**\tNo passenger by ID #" + id + " was found");
-                } else {
-                    found.print();
-                }
+                findAndDisplay(scanner);
                 break;
             case REPORT:
                 var records = dataBase.getReport();
                 System.out.println(Arrays.toString(records));
                 break;
-            case UPDATE:
-            case DELETE:
-            case ADD:
-                System.out.print("\nTODO\n");
+            case UPDATE: {
+                var record = findAndDisplay(scanner);
+                // If record is populated, and user input is accepted
+                if (record != null && record.isPopulated() && record.getRowNum() >= 0) {
+                    System.out.println("\n\t**\tEnter value to update entry's attribute. Enter no input to skip attribute.");
+                    if (scanInRecord(scanner, record, false) && dataBase.updateRecord(record)) {
+                        System.out.println("Update successful.");
+                        break;
+                    }
+                }
+                System.out.println("Update failed");
                 break;
+            }
+            case DELETE:{
+                var record = findAndDisplay(scanner);
+                // If record is populated, delete record
+                if (record != null && record.isPopulated() && record.getRowNum() >= 0) {
+                    System.out.println("\n\t**\tDeleting Record for passenger ID #" + record.passengerId);
+                    if (dataBase.deleteRecord(record)) {
+                        System.out.println("Delete successful.");
+                        break;
+                    }
+                }
+                System.out.println("Delete failed, empty record");
+                break;
+            }
+            case ADD:{
+                TitanicRecord record = new TitanicRecord();
+                if(!scanInRecord(scanner, record, true))
+                    break;
+                if (dataBase.addRecord(record)) {
+                    System.out.println("\n\t**\tAdded Record for passenger ID #" + record.passengerId);
+                    break;
+                }
+                System.out.println("Add failed, no empty space or a record already exists with that ID.");
+                break;
+            }
             case QUIT:
                 dataBase.close();
                 break;
@@ -104,4 +131,31 @@ public class Control {
         }
     }
 
+    private TitanicRecord findAndDisplay(Scanner scanner) throws DatabaseIsClosedException, RowBoundsException {
+        String id = scanner.nextLine();
+        var result = dataBase.findRecord(id);
+        var found = result.record;
+        if (found == null || !result.isFound || result.rowFound < 0) {
+            System.out.println("\t**\tNo passenger by ID #" + id + " was found");
+        } else {
+            found.setRowNum(result.rowFound);
+            found.print();
+        }
+        return found;
+    }
+    // Uses scan to fill a record. Can pass in loaded scanner with space seperated column numbers to auto-select
+    // columns to write.
+    private boolean scanInRecord(Scanner scanner, TitanicRecord record, boolean includeId) throws InputMismatchException {
+        boolean hasBeenUpdated = false;
+        // If ID should be included, start on column 0
+        for (int i = includeId? 0: 1; i < record.getNumAttributes(); i++) {
+            System.out.printf("\n\t%s:\t%s -->", record.getAttributeName(i), record.getValue(i));
+            String in = scanner.nextLine();
+            // If the user didn't just press 'enter' and update attribute value succeeds
+            if (!Objects.equals(in, "") && record.setAttributeValue(i, in)) {
+                hasBeenUpdated = true;
+            }
+        }
+        return hasBeenUpdated;
+    }
 }
