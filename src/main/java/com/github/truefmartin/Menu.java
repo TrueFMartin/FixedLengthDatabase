@@ -6,28 +6,41 @@ import java.util.Scanner;
 public class Menu {
     private final LinkedHashMap<String, MenuOption> menuMap;
     public Menu() {
-        MenuOption optionCreate = new MenuOption("1) Create new database", "Enter file prefix: ", Selection.CREATE);
-        MenuOption optionOpen = new MenuOption("2) Open existing database", "Enter database name: ", Selection.OPEN);
-        MenuOption optionClose = new MenuOption("3) Close an open database", "", Selection.CLOSE);
-        MenuOption optionRead = new MenuOption("4) Read a record by row NUMBER", "Enter row number: ", Selection.READ);
-        MenuOption optionDisplay = new MenuOption("5) Display a record by row KEY", "Enter key: ", Selection.DISPLAY);
-        MenuOption optionReport = new MenuOption("6) Display first 10 NON-EMPTY records", "Displaying first 10 rows.\n", Selection.REPORT);
-        MenuOption optionUpdate = new MenuOption("7) Update a record by row KEY", "Enter key: ", Selection.UPDATE);
-        MenuOption optionDelete = new MenuOption("8) Delete a record by row KEY", "Enter key number: ", Selection.DELETE);
-        MenuOption optionAdd = new MenuOption("9) Add a record to the database", "", Selection.ADD);
-        MenuOption optionQuit = new MenuOption("0) Quit", "", Selection.QUIT);
 
         menuMap = new LinkedHashMap<>(10);
-        menuMap.put("1", optionCreate);
-        menuMap.put("2", optionOpen);
-        menuMap.put("3", optionClose);
-        menuMap.put("4", optionRead);
-        menuMap.put("5", optionDisplay);
-        menuMap.put("6", optionReport);
-        menuMap.put("7", optionUpdate);
-        menuMap.put("8", optionDelete);
-        menuMap.put("9", optionAdd);
-        menuMap.put("0", optionQuit);
+        menuMap.put("1",
+                new MenuOption(
+                        "1) GET menu by restaurant name and city",
+                        Selection.GET_MENUS,
+                        "Enter restaurant name: ",
+                        "Enter city name: "));
+        menuMap.put("2",
+                new MenuOption(
+                        "2) ADD Order by dish name",
+                        Selection.ADD_ORDER,
+                        "Enter dish name: "));
+        menuMap.put("3",
+                new MenuOption(
+                        "3) GET orders by restaurant name and city",
+                        Selection.GET_ORDERS,
+                        "Enter restaurant name: ",
+                        "Enter city name: "));
+        menuMap.put("4",
+                new MenuOption(
+                        "4) DELETE order by order number",
+                Selection.DELETE_ORDER,
+                "Enter order number: "));
+        menuMap.put("5",
+                new MenuOption(
+                        "5) ADD new dish to restaurant",
+                Selection.ADD_DISH,
+                        "Enter restaurant name: ",
+                        "Enter city name: "
+                ));
+        menuMap.put("0", new MenuOption(
+                "0) Quit",
+                Selection.QUIT
+        ));
     }
 
     public void displayMenu() {
@@ -35,30 +48,29 @@ public class Menu {
     }
 
 
-    public Selection getSelection() {
+    protected MenuOption getMenuOption() {
         System.out.print("\tInput: ");
         Scanner scan = new Scanner(System.in);
         String in = scan.next();
         MenuOption selected = menuMap.get(in);
         if (selected == null) {
             System.out.format("\nInvalid input of '%s', please try again.\n", in);
-            return getSelection();
+            return getMenuOption();
         }
-        System.out.print(selected.instruction);
-        return selected.selection;
+        return selected;
     }
 
-    public enum Selection{CREATE, OPEN, CLOSE, READ, DISPLAY, REPORT, UPDATE, DELETE, ADD, QUIT, ERROR}
+    public enum Selection{GET_MENUS, ADD_ORDER, GET_ORDERS, DELETE_ORDER, ADD_DISH, QUIT, ERROR}
 
-    private static class MenuOption {
+    protected static class MenuOption {
         String display;
-        String instruction;
+        String[] instructions;
         Selection selection;
 
-        public MenuOption(String display, String instruction, Selection selection) {
+        public MenuOption(String display, Selection selection, String ... instructions) {
             this.display = display;
-            this.instruction = instruction;
             this.selection = selection;
+            this.instructions = instructions;
         }
     }
 }

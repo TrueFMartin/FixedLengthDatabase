@@ -1,0 +1,1 @@
+DROP TABLE restaurant, dish, menu_item, food_order;

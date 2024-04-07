@@ -1,0 +1,29 @@
+<!DOCTYPE hibernate-configuration PUBLIC
+        "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+        "http://hibernate.sourceforge.net/hibernate-configuration-3.0.dtd">
+<hibernate-configuration>
+    <session-factory>
+        <!-- Database connection settings -->
+        <property name="connection.url">jdbc:mysql://localhost:33060/fcmartin</property>
+        <property name="connection.username">fcmartin</property>
+        <property name="connection.password">Jee2aeK4</property>
+
+        <!-- SQL dialect -->
+        <property name="dialect">org.hibernate.dialect.MySQLDialect</property>
+
+        <!-- Echo all executed SQL to stdout -->
+        <property name="show_sql">true</property>
+
+        <!-- Update the database schema on startup -->
+        <property name="hbm2ddl.auto">update</property>
+        <!-- C3P0 connection pool settings -->
+        <property name="c3p0.min_size">5</property>
+        <property name="c3p0.max_size">20</property>
+
+        <!-- Mapped class -->
+        <mapping class="com.github.truefmartin.model.DishEntity"/>
+        <mapping class="com.github.truefmartin.model.FoodOrderEntity"/>
+        <mapping class="com.github.truefmartin.model.MenuItemEntity"/>
+        <mapping class="com.github.truefmartin.model.RestaurantEntity"/>
+    </session-factory>
+</hibernate-configuration>
