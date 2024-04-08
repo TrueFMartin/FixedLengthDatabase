@@ -28,8 +28,7 @@ public class Menu {
         menuMap.put("4",
                 new MenuOption(
                         "4) DELETE order by order number",
-                Selection.DELETE_ORDER,
-                "Enter order number: "));
+                Selection.DELETE_ORDER));
         menuMap.put("5",
                 new MenuOption(
                         "5) ADD new dish to restaurant",

@@ -1,14 +1,15 @@
 package com.github.truefmartin;
 
 import com.github.truefmartin.exceptions.EmptyResultsException;
-import com.github.truefmartin.model.FoodOrderEntity;
-import com.github.truefmartin.model.MenuItemEntity;
-import com.github.truefmartin.views.DisplayRestaurantDish;
+import com.github.truefmartin.model.*;
+import com.github.truefmartin.views.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 
+import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.util.*;
 
 public class Control {
@@ -61,38 +62,17 @@ public class Control {
                 break;
 
             case ADD_ORDER:
-                    getMatchingDishes(lines, tx, scanner);
+                addOrder(lines, tx, scanner);
                 break;
-                /*
-                 Prompt the user for the restaurantName and city .
-                 If the restaurant is found, display all orders for that restaurant.
-                 Display the restaurantName once (echo the user input) and
-                 then display the dishName, price, date, and time for all orders for that restaurant.
-                 */
-            case GET_ORDERS:
-                 break;
-                /*
-                 Display all food orders (orderNo, dishName, restaurantName, date, time).
-                 Prompt the user for the orderNo of the order that they wish to cancel.
-                 Remove that order from the FoodOrder table.
-                 */
-            case DELETE_ORDER: {
-                int row;
-                try {
-                    row = scanner.nextInt();
-                } catch (InputMismatchException e) {
-                    throw new InputMismatchException("invalid input on read row command");
-                }
 
+            case GET_ORDERS:
+                getOrdersByRestaurant(lines, tx);
+                 break;
+            case DELETE_ORDER:
+                deleteOrder(tx, scanner);
                 break;
-            }
-            /*
-            Prompt the user for the restaurantName and city.
-            If the restaurant is found, prompt for the name, type, and price of the the new dish.
-            Assume that the dish is unique.
-            Insert it into the Dish table. Insert it into the MenuItem table.
-             */
             case ADD_DISH:
+                addDish(lines, tx, scanner);
                 break;
 
             case ERROR:
@@ -114,26 +94,27 @@ public class Control {
         }
         var restaurantName = lines[0];
         var cityName = lines[1];
-        List<MenuItemEntity> menus = tx.createQuery(
-          "from MenuItemEntity m join RestaurantEntity r " +
-                  "on m.restaurantNo = r.restaurantId " +
+        List<DisplayDishMenu> dishMenus = tx.createQuery(
+                "select new com.github.truefmartin.views.DisplayDishMenu(d, m) " +
+                "from MenuItemEntity m join RestaurantEntity r on m.restaurantNo = r.restaurantId " +
+                        "join DishEntity d on m.dishNo = d.dishNo " +
                   "where r.restaurantName = :rName " +
                   "and r.city = :rCity",
-                MenuItemEntity.class
+                        DisplayDishMenu.class
         )
                 .setParameter("rName", restaurantName)
                 .setParameter("rCity", cityName)
                 .getResultList();
         tx.close();
-        if (menus.isEmpty()) {
+        if (dishMenus.isEmpty()) {
             throw EmptyResultsException.fromInput(restaurantName, cityName);
         }
         System.out.println("Restaurant: " + restaurantName + ", City: " + cityName);
-        for (MenuItemEntity menu :
-                menus
+        for (DisplayDishMenu dishMenu :
+                dishMenus
         ) {
             System.out.println("-".repeat(20));
-            System.out.println(menu);
+            System.out.println(dishMenu);
         }
         System.out.println("-".repeat(20));
     }
@@ -144,28 +125,28 @@ public class Control {
     Prompt the user for the itemNo for the MenuItem that they want to order.
     Add the itemNo, current time, and current date to the FoodOrder table.
      */
-    private static void getMatchingDishes(String[] lines, Session tx, Scanner scanner) throws EmptyResultsException {
+    private static void addOrder(String[] lines, Session tx, Scanner scanner) throws EmptyResultsException {
         if (lines.length != 1 || Objects.equals(lines[0], "")) {
             throw new InputMismatchException("Invalid input, please enter a dish name.");
         }
         var dishName = lines[0];
-        List<DisplayRestaurantDish> displayRestaurantDishes = tx.createQuery(
-                "select new com.github.truefmartin.views.DisplayRestaurantDish(d, r, m)" +
+        List<DisplayRestaurantDishMenu> restaurantDishMenus = tx.createQuery(
+                "select new com.github.truefmartin.views.DisplayRestaurantDishMenu(r, d, )" +
                         "from DishEntity d " +
-                        "join MenuItemEntity m on d.dishNo = m.dishNo " +
-                        "join RestaurantEntity r on m.restaurantNo = r.restaurantId " +
+//                        "join MenuItemEntity m on d.dishNo = m.dishNo " +
+                        "join RestaurantEntity r on value(d.menuItems).restaurantNo = r.restaurantId " +
                         "where d.dishName = :dishName ",
-                        DisplayRestaurantDish.class
+                        DisplayRestaurantDishMenu.class
                 )
                 .setParameter("dishName", dishName)
                 .getResultList();
-        if (displayRestaurantDishes.isEmpty()) {
+        if (restaurantDishMenus.isEmpty()) {
             throw EmptyResultsException.fromInput(dishName);
         }
         System.out.println("Dish: " + dishName );
 
-        for (DisplayRestaurantDish display :
-                displayRestaurantDishes
+        for (DisplayRestaurantDishMenu display :
+                restaurantDishMenus
         ) {
             System.out.println("-".repeat(20));
             System.out.println(display);
@@ -173,7 +154,7 @@ public class Control {
         System.out.println("-".repeat(20));
 
         // Get itemNo to add a new order to food_order relation
-        System.out.println("Enter itemNo to order: ");
+        System.out.print("Enter itemNo to add to orders: ");
         var itemNoStr = scanner.nextLine();
         int itemNo;
         try {
@@ -187,26 +168,189 @@ public class Control {
         tx.beginTransaction();
         tx.persist(newOrder);
         tx.getTransaction().commit();
-        tx.flush();
         System.out.println("Stored a new order: ");
         System.out.println(newOrder);
         tx.close();
     }
 
+    /*
+    Prompt the user for the restaurantName and city .
+    If the restaurant is found, display all orders for that restaurant.
+    Display the restaurantName once (echo the user input) and
+    then display the dishName, price, date, and time for all orders for that restaurant.
+    */
+    private static void getOrdersByRestaurant(String[] lines, Session tx) throws EmptyResultsException {
+        if (lines.length != 2 ||
+                Objects.equals(lines[0], "") ||
+                Objects.equals(lines[1], "")) {
+            throw new InputMismatchException("Invalid input, please enter a restaurant name and city.");
+        }
+        var restaurantName = lines[0];
+        var cityName = lines[1];
+        List<DisplayDishMenuOrder> dishMenuOrders = tx.createQuery(
+                        "select new com.github.truefmartin.views.DisplayDishMenuOrder(m.dish, m, o) " +
+                                "from MenuItemEntity m join RestaurantEntity r on m.restaurantNo = r.restaurantId " +
+//                                "join DishEntity d on m.dishNo = d.dishNo " +
+                                "join FoodOrderEntity o on m.itemNo = o.itemNo " +
+                                "where r.restaurantName = :rName " +
+                                "and r.city = :rCity",
+                        DisplayDishMenuOrder.class
+                )
+                .setParameter("rName", restaurantName)
+                .setParameter("rCity", cityName)
+                .getResultList();
+        tx.close();
+        if (dishMenuOrders.isEmpty()) {
+            throw EmptyResultsException.fromInput(restaurantName, cityName);
+        }
+        System.out.println("Restaurant: " + restaurantName + ", City: " + cityName);
+        for (DisplayDishMenuOrder display :
+                dishMenuOrders
+        ) {
+            System.out.println("-".repeat(20));
+            System.out.println(display);
+        }
+        System.out.println("-".repeat(20));
+    }
 
-    // Uses scan to fill a record. Can pass in loaded scanner with space seperated column numbers to auto-select
-    // columns to write.
-//    private boolean scanInRecord(Scanner scanner, TitanicRecord record, boolean includeId) throws InputMismatchException {
-//        boolean hasBeenUpdated = false;
-//        // If ID should be included, start on column 0
-//        for (int i = includeId? 0: 1; i < record.getNumAttributes(); i++) {
-//            System.out.printf("\n\t%s:\t%s -->", record.getAttributeName(i), record.getValue(i));
-//            String in = scanner.nextLine();
-//            // If the user didn't just press 'enter' and update attribute value succeeds
-//            if (!Objects.equals(in, "") && record.setAttributeValue(i, in)) {
-//                hasBeenUpdated = true;
-//            }
-//        }
-//        return hasBeenUpdated;
-//    }
+    /*
+     Display all food orders (orderNo, dishName, restaurantName, date, time).
+     Prompt the user for the orderNo of the order that they wish to cancel.
+     Remove that order from the FoodOrder table.
+     */
+    private static void deleteOrder(Session tx, Scanner scanner) throws EmptyResultsException {
+        List<DisplayRestaurantDishOrder> restaurantDishOrders = tx.createQuery(
+                        "select new com.github.truefmartin.views.DisplayRestaurantDishOrder(r, m.dish, o)" +
+                                "from FoodOrderEntity o " +
+                                "join MenuItemEntity m on o.itemNo = m.itemNo " +
+                                "join RestaurantEntity r on m.restaurantNo = r.restaurantId ",
+//                                "join DishEntity d on m.dishNo = d.dishNo ",
+                        DisplayRestaurantDishOrder.class
+                )
+                .getResultList();
+        if (restaurantDishOrders.isEmpty()) {
+            throw new EmptyResultsException("found no orders in food_order");
+        }
+        HashMap<Integer, FoodOrderEntity> orderMap = new HashMap<>();
+        for (DisplayRestaurantDishOrder display :
+                restaurantDishOrders
+        ) {
+            System.out.println("-".repeat(20));
+            System.out.println(display);
+            orderMap.put(display.getOrder().getOrderNo(), display.getOrder());
+        }
+        System.out.println("-".repeat(20));
+
+        // Get itemNo to add a new order to food_order relation
+        System.out.print("Enter orderNo to remove: ");
+        var orderNoStr = scanner.nextLine();
+        int orderNo;
+        try {
+            orderNo = Integer.parseInt(orderNoStr);
+        } catch (NumberFormatException e) {
+            throw new InputMismatchException("input of " + orderNoStr + " was not able to be translated to an orderNo");
+        }
+        FoodOrderEntity order;
+        if ((order = orderMap.get(orderNo)) == null) {
+            throw new EmptyResultsException("no order with number(" + orderNo + "), unable to remove order.");
+        }
+        tx.beginTransaction();
+        tx.remove(order);
+        tx.getTransaction().commit();
+        System.out.println("removed order with orderNo: " + orderNo);
+        tx.close();
+    }
+    /*
+    Prompt the user for the restaurantName and city.
+    If the restaurant is found, prompt for the name, type, and price of the new dish.
+    Assume that the dish is unique.
+    Insert it into the Dish table. Insert it into the MenuItem table.
+     */
+    private void addDish(String[] lines, Session tx, Scanner scanner) throws EmptyResultsException {
+        if (lines.length != 2 ||
+                Objects.equals(lines[0], "") ||
+                Objects.equals(lines[1], "")) {
+            throw new InputMismatchException("Invalid input, please enter a restaurant name and city.");
+        }
+        var restaurantName = lines[0];
+        var cityName = lines[1];
+//        BuildDishPrequery dishBuilder = tx.createQuery(
+//                "select new com.github.truefmartin.views.BuildDishPrequery(r, d) " +
+//                        "from RestaurantEntity r " +
+//                        "join DishEntity d on d.dishNo = (" +
+//                        "select max(ld.dishNo)" +
+//                        "from DishEntity ld " +
+//                        ") " +
+//                        "where r.restaurantName = :rName " +
+//                        "and r.city = :rCity",
+//                        BuildDishPrequery.class
+//                )
+//                .setParameter("rName", restaurantName)
+//                .setParameter("rCity", cityName)
+//                .getSingleResultOrNull();
+
+        var restaurant = tx.createQuery(
+                        "from RestaurantEntity r " +
+                                "where r.restaurantName = :rName " +
+                                "and r.city = :rCity",
+                        RestaurantEntity.class
+                )
+                .setParameter("rName", restaurantName)
+                .setParameter("rCity", cityName).getSingleResultOrNull();
+        if (restaurant == null ) {
+            throw EmptyResultsException.fromInput(restaurantName, cityName);
+        }
+        // prompt for the name, type, and price of the new dish.
+        System.out.print("Enter dish name: ");
+        var dishName = scanner.nextLine();
+
+        // Handle Types enum
+        var typesRaw = Type.values();
+        String[] types = new String[typesRaw.length];
+        StringBuilder typesConcat = new StringBuilder();
+        for (int i = 0; i < typesRaw.length; i++) {
+            types[i] = typesRaw[i].name();
+            typesConcat.append(types[i]).append("/");
+        }
+        System.out.print("Enter dish type(" + typesConcat + "): ");
+        var dishTypeStr = scanner.nextLine();
+        Type dishType;
+        try {
+            dishType = Type.valueOf(dishTypeStr);
+        } catch (IllegalArgumentException e) {
+            throw new InputMismatchException("input of " + dishTypeStr + " is not a valid dish type." );
+        }
+
+        System.out.print("Enter dish price: ");
+        var dishPriceStr = scanner.nextLine();
+        var dishPrice = 0.0f;
+        try {
+            dishPrice = Float.parseFloat(dishPriceStr);
+        } catch (NumberFormatException e) {
+            throw new InputMismatchException("input of " + dishPriceStr + " did not convert to a price for a menu item");
+        }
+        var trans = tx.beginTransaction();
+
+        // Build dish without associating menu
+        DishEntity dish = new DishEntity();
+        dish.setDishName(dishName);
+        dish.setType(dishType);
+        // Build menu
+        MenuItemEntity menu = new MenuItemEntity();
+        menu.setPrice(BigDecimal.valueOf(dishPrice));
+        menu.setRestaurantNo(restaurant.getRestaurantId());
+        // Associate dish to menu
+        menu.setDish(dish);
+        HashSet<MenuItemEntity> menus = new HashSet<>();
+        menus.add(menu);
+        dish.setMenuItems(menus);
+        // Both are persisted due to their relationship
+        tx.persist(dish);
+
+        tx.getTransaction().commit();
+        System.out.println("added: ");
+        System.out.println(dish);
+        System.out.println(menu);
+        tx.close();
+    }
 }

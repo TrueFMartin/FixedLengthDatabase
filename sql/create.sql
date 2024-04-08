@@ -1,7 +1,7 @@
 CREATE TABLE restaurant
     (
         restaurant_id int
-            PRIMARY KEY,
+            PRIMARY KEY AUTO_INCREMENT,
         restaurant_name varchar(15) NOT NULL,
         type varchar(15) NOT NULL,
         city varchar(15) NOT NULL
@@ -10,7 +10,7 @@ CREATE TABLE restaurant
 CREATE TABLE dish
     (
         dish_no int
-            PRIMARY KEY,
+            PRIMARY KEY AUTO_INCREMENT,
         dish_name varchar(25) NOT NULL,
         type ENUM ('ap', 'en', 'ds')
     );

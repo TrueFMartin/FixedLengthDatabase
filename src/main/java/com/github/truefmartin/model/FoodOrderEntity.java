@@ -25,8 +25,8 @@ public class FoodOrderEntity {
     private Time time;
 
     /**
-     * Instantiates a new Food order entity with the date and time set to
-     * the current date/time in UTC. ordreNo is generated automatically.
+     * Loads the Food order entity with the date and time set to
+     * the current date/time in UTC. orderNo is generated automatically.
      *
      */
     public void setDateTimeNow() {

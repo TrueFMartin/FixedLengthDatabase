@@ -1,4 +1,11 @@
-### Convert a CSV file into a fixed length record database.
+### Description: 
+
+Handle data in a MySQL database using the Java Object Relational Mapping API, Hibernate
+
+### Note on auto generated columns 'item_no' and 'order_no':
+Relations 'food_order' and 'menu_item' are set to autoincrement. They are set to **start incrementing
+at value 1**. The instructions had the input data starting at 0, however this is prevented by the flag:
+`NO_AUTO_VALUE_ON_ZERO`. It would also cause complications when checking for an empty value with id=0. 
 
 ### Run Instructions
 

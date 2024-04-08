@@ -2,21 +2,19 @@ package com.github.truefmartin.views;
 
 import com.github.truefmartin.model.DishEntity;
 import com.github.truefmartin.model.MenuItemEntity;
-import com.github.truefmartin.model.RestaurantEntity;
+
 /*
     Find and list all menu items available from that restaurant location.
     Output the restaurant name once (echo the user input) and then list the dish name and price for each
     available menu item.
  */
-public class DisplayMenu {
-    RestaurantEntity restaurant;
-    MenuItemEntity menu;
+public class DisplayDishMenu {
     DishEntity dish;
+    MenuItemEntity menu;
 
-    public DisplayMenu(RestaurantEntity restaurant, MenuItemEntity menu, DishEntity dish) {
-        this.restaurant = restaurant;
-        this.menu = menu;
+    public DisplayDishMenu(DishEntity dish, MenuItemEntity menu) {
         this.dish = dish;
+        this.menu = menu;
     }
 
     @Override

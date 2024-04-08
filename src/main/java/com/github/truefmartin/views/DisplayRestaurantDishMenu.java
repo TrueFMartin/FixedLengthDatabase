@@ -7,14 +7,14 @@ import com.github.truefmartin.model.RestaurantEntity;
 /*
 If the dish is found, display the itemNo, restaurantName, city and price for all matches.
  */
-public class DisplayRestaurantDish {
-    public DishEntity dish;
+public class DisplayRestaurantDishMenu {
     public RestaurantEntity restaurant;
+    public DishEntity dish;
     public MenuItemEntity menu;
 
-    public DisplayRestaurantDish(DishEntity dish, RestaurantEntity restaurant, MenuItemEntity menu) {
-        this.dish = dish;
+    public DisplayRestaurantDishMenu(RestaurantEntity restaurant, DishEntity dish, MenuItemEntity menu) {
         this.restaurant = restaurant;
+        this.dish = dish;
         this.menu = menu;
     }
 

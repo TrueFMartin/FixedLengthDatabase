@@ -2,6 +2,9 @@ package com.github.truefmartin;
 
 import java.awt.*;
 // Import log4j classes.
+import com.github.truefmartin.model.DishEntity;
+import com.github.truefmartin.model.RestaurantEntity;
+import com.github.truefmartin.model.Type;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.hibernate.HibernateException;
@@ -19,6 +22,8 @@ public class Main {
             System.out.println("Thank you, goodbye.");
         } catch (HibernateException e) {
             logger.error(e);
+            throw new RuntimeException(e);
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
 

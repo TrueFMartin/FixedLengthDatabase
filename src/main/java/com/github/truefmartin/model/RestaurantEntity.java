@@ -2,7 +2,9 @@ package com.github.truefmartin.model;
 
 import jakarta.persistence.*;
 
+import java.util.LinkedHashSet;
 import java.util.Objects;
+import java.util.Set;
 
 @Entity
 @Table(name = "restaurant", schema = "fcmartin")
@@ -20,6 +22,17 @@ public class RestaurantEntity {
     @Basic
     @Column(name = "city")
     private String city;
+
+    @OneToMany(mappedBy = "restaurantNo")
+    private Set<MenuItemEntity> menuItems = new LinkedHashSet<>();
+
+    public Set<MenuItemEntity> getMenuItems() {
+        return menuItems;
+    }
+
+    public void setMenuItems(Set<MenuItemEntity> menuItems) {
+        this.menuItems = menuItems;
+    }
 
     public int getRestaurantId() {
         return restaurantId;
