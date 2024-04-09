@@ -1,7 +1,7 @@
 package com.github.truefmartin.views;
 
-import com.github.truefmartin.model.DishEntity;
-import com.github.truefmartin.model.MenuItemEntity;
+import com.github.truefmartin.models.DishEntity;
+import com.github.truefmartin.models.MenuItemEntity;
 
 /*
     Find and list all menu items available from that restaurant location.
@@ -11,14 +11,22 @@ import com.github.truefmartin.model.MenuItemEntity;
 public class DisplayDishMenu {
     DishEntity dish;
     MenuItemEntity menu;
+    private final String altText;
 
     public DisplayDishMenu(DishEntity dish, MenuItemEntity menu) {
         this.dish = dish;
         this.menu = menu;
+        altText = null;
+    }
+    public DisplayDishMenu(String altText) {
+        this.altText = altText;
     }
 
     @Override
     public String toString() {
+        if (altText != null) {
+            return altText;
+        }
         return String.format("DisplayMenu{\n" +
                 "\tdishName=%s,\n" +
                 "\tprice=%.2f\n" +

@@ -1,7 +1,7 @@
 package com.github.truefmartin.views;
 
-import com.github.truefmartin.model.DishEntity;
-import com.github.truefmartin.model.RestaurantEntity;
+import com.github.truefmartin.models.DishEntity;
+import com.github.truefmartin.models.RestaurantEntity;
 
 public class BuildDishPrequery {
     RestaurantEntity restaurant;

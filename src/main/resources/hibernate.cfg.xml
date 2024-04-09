@@ -21,9 +21,9 @@
         <property name="c3p0.max_size">20</property>
 
         <!-- Mapped class -->
-        <mapping class="com.github.truefmartin.model.DishEntity"/>
-        <mapping class="com.github.truefmartin.model.FoodOrderEntity"/>
-        <mapping class="com.github.truefmartin.model.MenuItemEntity"/>
-        <mapping class="com.github.truefmartin.model.RestaurantEntity"/>
+        <mapping class="com.github.truefmartin.models.DishEntity"/>
+        <mapping class="com.github.truefmartin.models.FoodOrderEntity"/>
+        <mapping class="com.github.truefmartin.models.MenuItemEntity"/>
+        <mapping class="com.github.truefmartin.models.RestaurantEntity"/>
     </session-factory>
 </hibernate-configuration>

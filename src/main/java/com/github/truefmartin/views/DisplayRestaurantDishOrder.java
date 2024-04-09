@@ -1,8 +1,8 @@
 package com.github.truefmartin.views;
 
-import com.github.truefmartin.model.DishEntity;
-import com.github.truefmartin.model.FoodOrderEntity;
-import com.github.truefmartin.model.RestaurantEntity;
+import com.github.truefmartin.models.DishEntity;
+import com.github.truefmartin.models.FoodOrderEntity;
+import com.github.truefmartin.models.RestaurantEntity;
 
 /*
     Display all food orders (orderNo, dishName, restaurantName, date, time).

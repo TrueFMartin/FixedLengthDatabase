@@ -1,4 +1,4 @@
-package com.github.truefmartin.model;
+package com.github.truefmartin.models;
 
 import jakarta.persistence.*;
 

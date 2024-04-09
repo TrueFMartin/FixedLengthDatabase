@@ -59,7 +59,7 @@ public class Menu {
         return selected;
     }
 
-    public enum Selection{GET_MENUS, ADD_ORDER, GET_ORDERS, DELETE_ORDER, ADD_DISH, QUIT, ERROR}
+    public enum Selection{GET_MENUS, ADD_ORDER, GET_ORDERS, DELETE_ORDER, ADD_DISH, QUIT}
 
     protected static class MenuOption {
         String display;

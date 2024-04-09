@@ -1,10 +1,9 @@
-package com.github.truefmartin.model;
+package com.github.truefmartin.models;
 
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
 
