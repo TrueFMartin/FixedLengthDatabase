@@ -9,6 +9,8 @@ import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 
 import java.math.BigDecimal;
+import java.sql.Date;
+import java.sql.Time;
 import java.util.*;
 
 public class Control {
@@ -209,30 +211,72 @@ public class Control {
         }
         var restaurantName = lines[0];
         var cityName = lines[1];
-        List<MenuItemEntity> menuItems = tx.createQuery(
-                        "select r.menuItems " +
-                                "from RestaurantEntity r " +
-                                "where r.restaurantName = :rName " +
-                                "and r.city = :rCity",
-                        MenuItemEntity.class
+
+        // The number of queries gets out of hand if we let the EAGER associations do their own thing,
+        // so we will instead do a single query with raw sql instead. Trading readability and persistence for less DB strain.
+        List<Object[]> results = tx.createNativeQuery(
+                        "SELECT dish_name, price, date, time " +
+                                "FROM food_order o " +
+                                "JOIN menu_item mi on o.item_no = mi.item_no " +
+                                "JOIN dish d on mi.dish_no = d.dish_no " +
+                                "WHERE mi.restaurant_no in " +
+                                "( " +
+                                "SELECT restaurant.restaurant_id " +
+                                "FROM fcmartin.restaurant " +
+                                "WHERE restaurant_name = :rName " +
+                                "AND city = :rCity" +
+                                ")",
+                        Object[].class
                 )
                 .setParameter("rName", restaurantName)
                 .setParameter("rCity", cityName)
-                .getResultList();
+                .list();
         tx.close();
-        if (menuItems.isEmpty()) {
+
+        if (results.isEmpty()) {
             throw EmptyResultsException.fromInput(restaurantName, cityName, " with possibly no menus for given restaurant");
         }
         System.out.println("Restaurant: " + restaurantName + ", City: " + cityName);
-        for (MenuItemEntity menuItem :
-                menuItems
-        ) {
-            for (FoodOrderEntity foodOrder : menuItem.getFoodOrders()) {
-                System.out.println("-".repeat(20));
-                System.out.println(new DisplayDishMenuOrder(menuItem.getDish(), menuItem, foodOrder));
-            }
+        for (Object[] result : results) {
+            String dName = (String) result[0];
+            BigDecimal price = (BigDecimal) result[1];
+            Date date = (Date) result[2];
+            Time time = (Time) result[3];
+            System.out.println("-".repeat(20));
+            System.out.printf("DisplayDishMenuOrder{\n" +
+                    "\t%s\n" +
+                    "\t%.2f\n" +
+                    "\t%s\n" +
+                    "\t%s\n" +
+                    "}", dName, price.floatValue(), date.toString(), time.toString());
         }
         System.out.println("-".repeat(20));
+
+//        List<MenuItemEntity> menuItems = tx.createQuery(
+//                        "select new com.github.truefmartin.views.DisplayDishMenuOrder() " +
+//                                "from RestaurantEntity r " +
+//                                "where r.restaurantName = :rName " +
+//                                "and r.city = :rCity",
+//                        MenuItemEntity.class
+//                )
+//                .setParameter("rName", restaurantName)
+//                .setParameter("rCity", cityName)
+//                .getResultList();
+//
+//        if (menuItems.isEmpty()) {
+//            throw EmptyResultsException.fromInput(restaurantName, cityName, " with possibly no menus for given restaurant");
+//        }
+//        System.out.println("Restaurant: " + restaurantName + ", City: " + cityName);
+//        for (MenuItemEntity menuItem :
+//                menuItems
+//        ) {
+//            for (FoodOrderEntity foodOrder : menuItem.getFoodOrders()) {
+//                System.out.println("-".repeat(20));
+//                System.out.println(new DisplayDishMenuOrder(menuItem.getDish(), menuItem, foodOrder));
+//            }
+//        }
+//        System.out.println("-".repeat(20));
+//        tx.close();
     }
 
     /*

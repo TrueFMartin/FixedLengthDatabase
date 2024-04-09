@@ -16,11 +16,11 @@ public class MenuItemEntity {
     @Column(name = "item_no")
     private int itemNo;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "restaurant_no", nullable = false)
     private RestaurantEntity restaurant;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "dish_no", nullable = true)
     private DishEntity dish;
     
