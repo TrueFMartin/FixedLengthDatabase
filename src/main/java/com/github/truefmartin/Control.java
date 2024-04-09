@@ -14,7 +14,6 @@ public class Control {
     private static final Logger logger = LogManager.getLogger(Control.class);
 
     private static final Menu menuUI = new Menu();
-    private static final int[] COLUMN_SIZES = {4, 15, 20, 4, 20, 6, 10};
     private final Model model;
 
     public Control(Model model) {
@@ -22,7 +21,7 @@ public class Control {
     }
 
     /**
-     * Start the main loop of the program. Prints the menu and gets input from the user.
+     * Start the main user-facing loop of the program. Prints the menu and gets input from the user.
      */
     public void start() {
         Menu.MenuOption menuOption;

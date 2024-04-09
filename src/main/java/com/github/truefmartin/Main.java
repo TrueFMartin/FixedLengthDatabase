@@ -12,7 +12,8 @@ public class Main {
     private static final Logger logger = LogManager.getLogger(Main.class);
 
     public static void main(String[] args) {
-
+        // Create the model which creates a new SessionFactory object.
+        // Autoclose the model (and the SessionFactory) when done or on exception.
         try (Model model = new Model()) {
             artIntro();
             System.out.println("\n\nWelcome, please choose an option from the following menu.");

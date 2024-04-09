@@ -10,6 +10,7 @@ import com.github.truefmartin.views.DisplayDishMenuOrder;
 import com.github.truefmartin.views.DisplayRestaurantDishOrder;
 import com.github.truefmartin.views.DisplayRestaurantMenu;
 import org.hibernate.HibernateException;
+import org.hibernate.NonUniqueObjectException;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
@@ -23,72 +24,134 @@ import java.util.List;
 public class Model implements AutoCloseable{
     private static SessionFactory sessionFactory;
 
+    /**
+     * Builds a new Hibernate SessionFactory.
+     * @return a new SessionFactory
+     * @throws HibernateException if there is a problem creating the SessionFactory
+     */
     private static SessionFactory buildSession() throws HibernateException {
         return new Configuration().configure().buildSessionFactory();
     }
 
+    /**
+     * Constructs a new Model object.
+     * If the sessionFactory is null, it builds a new one.
+     */
     public Model() {
         if (sessionFactory == null) {
             sessionFactory = buildSession();
         }
     }
 
+    /**
+     * Closes the sessionFactory when the Model object is closed.
+     * @throws Exception if there is a problem closing the sessionFactory
+     */
     @Override
     public void close() throws Exception {
         sessionFactory.close();
     }
 
+    /*
+     * The following methods are used to interact with the database. Each method opens a new session,
+     * performs the database operation, and then closes the session even if an exception is thrown.
+     */
 
+    /**
+     * Retrieves the menus of a specific restaurant.
+     * @param restaurantName the name of the restaurant
+     * @param cityName the city where the restaurant is located
+     * @return a list of menus
+     * @throws EmptyResultsException if no menus are found
+     */
     public List<DisplayDishMenu> getMenusOfRestaurant(String restaurantName, String cityName) throws EmptyResultsException {
         try(var tx = sessionFactory.openSession()) {
             return getMenusOfRestaurant(tx, restaurantName, cityName);
         }
     }
 
+    /**
+     * Retrieves the menus that contain a specific dish.
+     * @param dishName the name of the dish
+     * @return a list of menus
+     * @throws EmptyResultsException if no menus are found
+     */
     public List<DisplayRestaurantMenu> getMenusOfDish(String dishName) throws EmptyResultsException {
         try(var tx = sessionFactory.openSession()) {
             return getMenusOfDish(tx, dishName);
         }
     }
 
+    /**
+     * Retrieves the orders of a specific restaurant.
+     * @param restaurantName the name of the restaurant
+     * @param cityName the city where the restaurant is located
+     * @return a list of orders
+     * @throws EmptyResultsException if no orders are found
+     */
     public List<DisplayDishMenuOrder> getOrdersOfRestaurant(String restaurantName, String cityName) throws EmptyResultsException {
         try(var tx = sessionFactory.openSession()) {
             return getOrdersOfRestaurant(tx, restaurantName, cityName);
         }
     }
 
+    /**
+     * Adds a new order to the database.
+     * @param menu the menu item to be ordered
+     */
     public void addOrder(MenuItemEntity menu) {
         try(var tx = sessionFactory.openSession()) {
             addOrder(tx, menu);
         }
     }
 
+    /**
+     * Retrieves all orders from the database.
+     * @return a list of all orders
+     * @throws EmptyResultsException if no orders are found
+     */
     public List<DisplayRestaurantDishOrder> getAllOrders() throws EmptyResultsException {
         try(var tx = sessionFactory.openSession()) {
             return getAllOrders(tx);
         }
     }
 
-
+    /**
+     * Deletes an order from the database.
+     * @param order the order to be deleted
+     */
     public void deleteOrder(FoodOrderEntity order) {
         try(var tx = sessionFactory.openSession()) {
             deleteOrder(tx, order);
         }
     }
 
-
+    /**
+     * Retrieves a specific restaurant from the database.
+     * @param restaurantName the name of the restaurant
+     * @param cityName the city where the restaurant is located
+     * @return the restaurant entity
+     * @throws EmptyResultsException if the restaurant is not found
+     */
     public RestaurantEntity getRestaurant(String restaurantName, String cityName) throws EmptyResultsException {
         try(var tx = sessionFactory.openSession()) {
             return getRestaurant(tx, restaurantName, cityName);
         }
     }
 
+    /**
+     * Adds a new dish to the database.
+     * @param dish the dish to be added
+     */
     public void addDish(DishEntity dish) {
         try(var tx = sessionFactory.openSession()) {
             addDish(tx, dish);
         }
     }
 
+    /*
+    * The following methods are helper methods that perform the actual database operations.
+    */
 
     private List<DisplayRestaurantMenu> getMenusOfDish(Session tx, String dishName) throws EmptyResultsException {
         List<MenuItemEntity> menus = tx.createQuery(
@@ -103,8 +166,6 @@ public class Model implements AutoCloseable{
             throw EmptyResultsException.fromInput(dishName, " or no 'menu_items' with that dishNo");
         }
         var result = new ArrayList<DisplayRestaurantMenu>();
-        System.out.println("Dish: " + dishName );
-
         for (MenuItemEntity menu :
                 menus
         ) {
@@ -133,7 +194,6 @@ public class Model implements AutoCloseable{
         for (MenuItemEntity dishMenu :
                 menus
         ) {
-            System.out.println("-".repeat(20));
             if (dishMenu.getDish() != null) {
                 result.add(new DisplayDishMenu(dishMenu.getDish(), dishMenu));
             } else {
@@ -148,11 +208,13 @@ public class Model implements AutoCloseable{
     // Add the itemNo, current time, and current date to the FoodOrder table.
     private void addOrder(Session tx, MenuItemEntity menu) {
         tx.beginTransaction();
+        // Get menu from cache to avoid LazyInitializationException
+        menu = tx.get(MenuItemEntity.class, menu.getItemNo());
         FoodOrderEntity newOrder = new FoodOrderEntity();
         newOrder.setMenu(menu);
         newOrder.setDateTimeNow();
+        tx.persist(newOrder);
         menu.getFoodOrders().add(newOrder);
-        tx.merge(menu);
         tx.getTransaction().commit();
     }
 

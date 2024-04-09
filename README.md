@@ -2,10 +2,12 @@
 
 Handle data in a MySQL database using the Java Object Relational Mapping API, Hibernate
 
-### Note on auto generated columns 'item_no' and 'order_no':
-Relations 'food_order' and 'menu_item' are set to autoincrement. They are set to **start incrementing
-at value 1**. The instructions had the input data starting at 0, however this is prevented by the flag:
-`NO_AUTO_VALUE_ON_ZERO`. It would also cause complications when checking for an empty value with id=0. 
+### Note on auto generated columns:
+Relations are set to auto-generate their ID fields. They are set to **start incrementing
+at value 1**. The instructions had the input data starting at 0 for some IDs, however this is prevented by the flag:
+`NO_AUTO_VALUE_ON_ZERO`. It would also cause complications when checking for an empty value with id=0. Initial IDs may 
+be 1 value higher than the provided base data. 
+
 
 ### Run Instructions
 
@@ -15,17 +17,12 @@ at value 1**. The instructions had the input data starting at 0, however this is
 
 ### Build Script Options
 
-* `./run.sh build` -- Compile source code, class files created in ./out/ 
+* `./run.sh build` -- Requires Maven (mvn command). Compile source code, the packed jar is located at ./hw4-packed-spring-boot.jar. 
 
-* `./run.sh run` -- Run class files in ./out/
+* `./run.sh run` -- Run the jar file.
 
-* `./run.sh clean` -- Remove class files
+* `./run.sh clean` -- Remove the jar file. 
+Not allowed to run without Maven as the jar will not be able to be reproduced. Use `rm hw4-packed-spring-boot.jar` if needed.
 
-* `./run.sh` -- Compile source code, then run program
-
-### Log Args: 
-
-* If you are not using the run script, add the following flag to your run command:
-
-	`-Dlog4j.configurationFile=./log4j2.xml`
+* `./run.sh` --Run the jar file. 
 
