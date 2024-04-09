@@ -15,6 +15,7 @@ public class Main {
     private static final Logger logger = LogManager.getLogger(Main.class);
 
     public static void main(String[] args) {
+
         try (SessionFactory session = buildSession()) {
             artIntro();
             System.out.println("\n\nWelcome, please choose an option from the following menu.");

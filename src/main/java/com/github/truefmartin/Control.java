@@ -8,7 +8,6 @@ import org.apache.logging.log4j.Logger;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 
-import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.util.*;
 
@@ -94,27 +93,44 @@ public class Control {
         }
         var restaurantName = lines[0];
         var cityName = lines[1];
-        List<DisplayDishMenu> dishMenus = tx.createQuery(
-                "select new com.github.truefmartin.views.DisplayDishMenu(d, m) " +
-                "from MenuItemEntity m join RestaurantEntity r on m.restaurantNo = r.restaurantId " +
-                        "join DishEntity d on m.dishNo = d.dishNo " +
-                  "where r.restaurantName = :rName " +
-                  "and r.city = :rCity",
-                        DisplayDishMenu.class
-        )
+//        List<DisplayDishMenu> dishMenus = tx.createQuery(
+//                "select new com.github.truefmartin.views.DisplayDishMenu(d, m) " +
+//                "from MenuItemEntity m join RestaurantEntity r on m.restaurantNo = r.restaurantId " +
+//                        "join DishEntity d on m.dishNo = d.dishNo " +
+//                  "where r.restaurantName = :rName " +
+//                  "and r.city = :rCity",
+//                        DisplayDishMenu.class
+//        )
+//                .setParameter("rName", restaurantName)
+//                .setParameter("rCity", cityName)
+//                .getResultList();
+//
+        List<MenuItemEntity> menus = tx.createQuery(
+                "select elements(r.menuItems) " +
+                        "from RestaurantEntity r " +
+                        "where r.restaurantName = :rName " +
+                        "and r.city = :rCity",
+                MenuItemEntity.class
+                )
                 .setParameter("rName", restaurantName)
                 .setParameter("rCity", cityName)
                 .getResultList();
+
         tx.close();
-        if (dishMenus.isEmpty()) {
+        if (menus.isEmpty()) {
             throw EmptyResultsException.fromInput(restaurantName, cityName);
         }
         System.out.println("Restaurant: " + restaurantName + ", City: " + cityName);
-        for (DisplayDishMenu dishMenu :
-                dishMenus
+        for (MenuItemEntity dishMenu :
+                menus
         ) {
             System.out.println("-".repeat(20));
-            System.out.println(dishMenu);
+            if (dishMenu.getDish() != null) {
+                System.out.println(new DisplayDishMenu(dishMenu.getDish(), dishMenu));
+            } else {
+                System.out.printf("**Menu item_no=%d, with price %.2f has no associated dish**\n",
+                        dishMenu.getItemNo(), dishMenu.getPrice());
+            }
         }
         System.out.println("-".repeat(20));
     }
@@ -130,26 +146,24 @@ public class Control {
             throw new InputMismatchException("Invalid input, please enter a dish name.");
         }
         var dishName = lines[0];
-        List<DisplayRestaurantDishMenu> restaurantDishMenus = tx.createQuery(
-                "select new com.github.truefmartin.views.DisplayRestaurantDishMenu(r, d, )" +
+        List<MenuItemEntity> menus = tx.createQuery(
+                "select d.menuItems " +
                         "from DishEntity d " +
-//                        "join MenuItemEntity m on d.dishNo = m.dishNo " +
-                        "join RestaurantEntity r on value(d.menuItems).restaurantNo = r.restaurantId " +
                         "where d.dishName = :dishName ",
-                        DisplayRestaurantDishMenu.class
+                        MenuItemEntity.class
                 )
                 .setParameter("dishName", dishName)
                 .getResultList();
-        if (restaurantDishMenus.isEmpty()) {
-            throw EmptyResultsException.fromInput(dishName);
+        if (menus.isEmpty()) {
+            throw EmptyResultsException.fromInput(dishName, " or no 'menu_items' with that dishNo");
         }
         System.out.println("Dish: " + dishName );
 
-        for (DisplayRestaurantDishMenu display :
-                restaurantDishMenus
+        for (MenuItemEntity menu :
+                menus
         ) {
             System.out.println("-".repeat(20));
-            System.out.println(display);
+            System.out.println(new DisplayRestaurantMenu(menu.getRestaurant(), menu));
         }
         System.out.println("-".repeat(20));
 
@@ -162,14 +176,22 @@ public class Control {
         } catch (NumberFormatException e) {
             throw new InputMismatchException("input of " + itemNoStr + " was not able to be translated to an itemNo");
         }
-        FoodOrderEntity newOrder = new FoodOrderEntity();
-        newOrder.setItemNo(itemNo);
-        newOrder.setDateTimeNow();
+
+        var possibleMenu= menus.stream().filter((var m) -> m.getItemNo() == itemNo).findFirst();
+        if (possibleMenu.isEmpty()) {
+            throw new EmptyResultsException("input of " + itemNo + " did not match a menuItem");
+        }
+        var menu = possibleMenu.get();
         tx.beginTransaction();
-        tx.persist(newOrder);
+        FoodOrderEntity newOrder = new FoodOrderEntity();
+        newOrder.setMenu(menu);
+        newOrder.setDateTimeNow();
+        menu.getFoodOrders().add(newOrder);
+        tx.merge(menu);
         tx.getTransaction().commit();
-        System.out.println("Stored a new order: ");
-        System.out.println(newOrder);
+        System.out.println("Stored a new order of : ");
+        System.out.printf("{menu item_no=%d, order date=%s, order time=%s}\n",
+                menu.getItemNo(), newOrder.getDate().toString(), newOrder.getTime().toString());
         tx.close();
     }
 
@@ -187,28 +209,28 @@ public class Control {
         }
         var restaurantName = lines[0];
         var cityName = lines[1];
-        List<DisplayDishMenuOrder> dishMenuOrders = tx.createQuery(
-                        "select new com.github.truefmartin.views.DisplayDishMenuOrder(m.dish, m, o) " +
-                                "from MenuItemEntity m join RestaurantEntity r on m.restaurantNo = r.restaurantId " +
-//                                "join DishEntity d on m.dishNo = d.dishNo " +
-                                "join FoodOrderEntity o on m.itemNo = o.itemNo " +
+        List<MenuItemEntity> menuItems = tx.createQuery(
+                        "select r.menuItems " +
+                                "from RestaurantEntity r " +
                                 "where r.restaurantName = :rName " +
                                 "and r.city = :rCity",
-                        DisplayDishMenuOrder.class
+                        MenuItemEntity.class
                 )
                 .setParameter("rName", restaurantName)
                 .setParameter("rCity", cityName)
                 .getResultList();
         tx.close();
-        if (dishMenuOrders.isEmpty()) {
-            throw EmptyResultsException.fromInput(restaurantName, cityName);
+        if (menuItems.isEmpty()) {
+            throw EmptyResultsException.fromInput(restaurantName, cityName, " with possibly no menus for given restaurant");
         }
         System.out.println("Restaurant: " + restaurantName + ", City: " + cityName);
-        for (DisplayDishMenuOrder display :
-                dishMenuOrders
+        for (MenuItemEntity menuItem :
+                menuItems
         ) {
-            System.out.println("-".repeat(20));
-            System.out.println(display);
+            for (FoodOrderEntity foodOrder : menuItem.getFoodOrders()) {
+                System.out.println("-".repeat(20));
+                System.out.println(new DisplayDishMenuOrder(menuItem.getDish(), menuItem, foodOrder));
+            }
         }
         System.out.println("-".repeat(20));
     }
@@ -220,10 +242,10 @@ public class Control {
      */
     private static void deleteOrder(Session tx, Scanner scanner) throws EmptyResultsException {
         List<DisplayRestaurantDishOrder> restaurantDishOrders = tx.createQuery(
-                        "select new com.github.truefmartin.views.DisplayRestaurantDishOrder(r, m.dish, o)" +
-                                "from FoodOrderEntity o " +
-                                "join MenuItemEntity m on o.itemNo = m.itemNo " +
-                                "join RestaurantEntity r on m.restaurantNo = r.restaurantId ",
+                        "select new com.github.truefmartin.views.DisplayRestaurantDishOrder(o.menu.restaurant, o.menu.dish, o)" +
+                                "from FoodOrderEntity o ",
+//                                "join MenuItemEntity m on o.itemNo = m.itemNo " +
+//                                "join RestaurantEntity r on m.restaurantNo = r.restaurantId ",
 //                                "join DishEntity d on m.dishNo = d.dishNo ",
                         DisplayRestaurantDishOrder.class
                 )
@@ -338,7 +360,7 @@ public class Control {
         // Build menu
         MenuItemEntity menu = new MenuItemEntity();
         menu.setPrice(BigDecimal.valueOf(dishPrice));
-        menu.setRestaurantNo(restaurant.getRestaurantId());
+        menu.setRestaurant(restaurant);
         // Associate dish to menu
         menu.setDish(dish);
         HashSet<MenuItemEntity> menus = new HashSet<>();

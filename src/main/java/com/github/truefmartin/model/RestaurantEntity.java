@@ -23,7 +23,7 @@ public class RestaurantEntity {
     @Column(name = "city")
     private String city;
 
-    @OneToMany(mappedBy = "restaurantNo")
+    @OneToMany(mappedBy = "restaurant")
     private Set<MenuItemEntity> menuItems = new LinkedHashSet<>();
 
     public Set<MenuItemEntity> getMenuItems() {
@@ -71,7 +71,7 @@ public class RestaurantEntity {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         RestaurantEntity that = (RestaurantEntity) o;
-        return restaurantId == that.restaurantId && Objects.equals(restaurantName, that.restaurantName) && Objects.equals(type, that.type) && Objects.equals(city, that.city);
+        return restaurantId == that.restaurantId && Objects.equals(type, that.type) && Objects.equals(city, that.city);
     }
 
     @Override

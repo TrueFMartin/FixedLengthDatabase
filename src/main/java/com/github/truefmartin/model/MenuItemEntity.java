@@ -3,6 +3,7 @@ package com.github.truefmartin.model;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -14,13 +15,12 @@ public class MenuItemEntity {
     @Id
     @Column(name = "item_no")
     private int itemNo;
-    @Basic
-    @Column(name = "restaurant_no")
-    private Integer restaurantNo;
-//    @Basic
-//    @Column(name = "dish_no")
-//    private Integer dishNo;
-    @ManyToOne(fetch = FetchType.EAGER)
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "restaurant_no", nullable = false)
+    private RestaurantEntity restaurant;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dish_no", nullable = true)
     private DishEntity dish;
     
@@ -28,8 +28,8 @@ public class MenuItemEntity {
     @Column(name = "price")
     private BigDecimal price;
 
-    @OneToMany(mappedBy = "itemNo")
-    private Set<FoodOrderEntity> foodOrders = new LinkedHashSet<>();
+    @OneToMany(mappedBy = "menu", cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE})
+    private Set<FoodOrderEntity> foodOrders = new HashSet<>();
 
     public Set<FoodOrderEntity> getFoodOrders() {
         return foodOrders;
@@ -47,12 +47,12 @@ public class MenuItemEntity {
         this.itemNo = itemNo;
     }
 
-    public Integer getRestaurantNo() {
-        return restaurantNo;
+    public RestaurantEntity getRestaurant() {
+        return restaurant;
     }
 
-    public void setRestaurantNo(Integer restaurantNo) {
-        this.restaurantNo = restaurantNo;
+    public void setRestaurant(RestaurantEntity restaurant) {
+        this.restaurant = restaurant;
     }
 
     public DishEntity getDish() {
@@ -76,12 +76,12 @@ public class MenuItemEntity {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         MenuItemEntity that = (MenuItemEntity) o;
-        return itemNo == that.itemNo && Objects.equals(restaurantNo, that.restaurantNo) && Objects.equals(dish.getDishNo(), that.dish.getDishNo()) && Objects.equals(price, that.price);
+        return itemNo == that.itemNo && Objects.equals(price, that.price);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(itemNo, restaurantNo, dish, price);
+        return Objects.hash(itemNo, price);
     }
 
     @Override
@@ -90,9 +90,15 @@ public class MenuItemEntity {
         if (this.dish != null) {
             dishStr = String.valueOf(this.dish.getDishNo());
         }
+
+        var restaurantStr = "null";
+        if (this.restaurant != null) {
+            restaurantStr = String.valueOf(this.restaurant.getRestaurantId());
+        }
+
         return "MenuItemEntity{" +
                 "itemNo=" + itemNo +
-                ", restaurantNo=" + restaurantNo +
+                ", restaurantNo=" + restaurantStr +
                 ", dishNo=" + dishStr +
                 ", price=" + String.format("%.2f", price) +
                 '}';

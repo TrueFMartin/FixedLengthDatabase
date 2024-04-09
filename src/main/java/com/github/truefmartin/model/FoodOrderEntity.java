@@ -14,9 +14,11 @@ public class FoodOrderEntity {
     @Id
     @Column(name = "order_no")
     private int orderNo;
-    @Basic
-    @Column(name = "item_no")
-    private Integer itemNo;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "item_no", nullable = false)
+    private MenuItemEntity menu;
+
     @Basic
     @Column(name = "date")
     private Date date;
@@ -44,12 +46,12 @@ public class FoodOrderEntity {
         this.orderNo = orderNo;
     }
 
-    public Integer getItemNo() {
-        return itemNo;
+    public MenuItemEntity getMenu() {
+        return menu;
     }
 
-    public void setItemNo(Integer itemNo) {
-        this.itemNo = itemNo;
+    public void setMenu(MenuItemEntity menu) {
+        this.menu = menu;
     }
 
     public Date getDate() {
@@ -73,19 +75,23 @@ public class FoodOrderEntity {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         FoodOrderEntity that = (FoodOrderEntity) o;
-        return orderNo == that.orderNo && Objects.equals(itemNo, that.itemNo) && Objects.equals(date, that.date) && Objects.equals(time, that.time);
+        return orderNo == that.orderNo && date == that.date && time == that.time;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(orderNo, itemNo, date, time);
+        return Objects.hash(orderNo, menu, date, time);
     }
 
     @Override
     public String toString() {
+        var itemNoStr = "null";
+        if (this.menu != null) {
+            itemNoStr = String.valueOf(this.menu.getItemNo());
+        }
         return "FoodOrderEntity{" +
                 "orderNo=" + orderNo +
-                ", itemNo=" + itemNo +
+                ", itemNo=" + itemNoStr +
                 ", date=" + date +
                 ", time=" + time +
                 '}';

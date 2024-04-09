@@ -7,20 +7,18 @@ import com.github.truefmartin.model.RestaurantEntity;
 /*
 If the dish is found, display the itemNo, restaurantName, city and price for all matches.
  */
-public class DisplayRestaurantDishMenu {
+public class DisplayRestaurantMenu {
     public RestaurantEntity restaurant;
-    public DishEntity dish;
     public MenuItemEntity menu;
 
-    public DisplayRestaurantDishMenu(RestaurantEntity restaurant, DishEntity dish, MenuItemEntity menu) {
+    public DisplayRestaurantMenu(RestaurantEntity restaurant, MenuItemEntity menu) {
         this.restaurant = restaurant;
-        this.dish = dish;
         this.menu = menu;
     }
 
     @Override
     public String toString() {
-        return String.format("DisplayRestaurantDish{\n" +
+        return String.format("DisplayRestaurantMenu{\n" +
                 "\titemNo=%d,\n" +
                 "\trestaurantName=%s,\n" +
                 "\tcity=%s,\n" +

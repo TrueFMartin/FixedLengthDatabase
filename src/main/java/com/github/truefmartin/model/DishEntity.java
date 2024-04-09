@@ -20,7 +20,7 @@ public class DishEntity {
     @Enumerated(EnumType.STRING)
     private Type type;
 
-    @OneToMany(mappedBy = "dish", cascade = CascadeType.PERSIST)
+    @OneToMany(mappedBy = "dish", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private Set<MenuItemEntity> menuItems = new LinkedHashSet<>();
 
     public Set<MenuItemEntity> getMenuItems() {
@@ -31,7 +31,7 @@ public class DishEntity {
         this.menuItems = menuItems;
     }
 
-    public int getDishNo() {
+    public final int getDishNo() {
         return dishNo;
     }
 
