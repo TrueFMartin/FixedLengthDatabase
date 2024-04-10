@@ -12,12 +12,19 @@ import java.util.*;
 public class Control {
 
     private static final Logger logger = LogManager.getLogger(Control.class);
-
+    private static HashMap<String, Class<?>> relationMap = null;
     private static final Menu menuUI = new Menu();
     private final Model model;
 
     public Control(Model model) {
         this.model = model;
+        if (relationMap == null) {
+            relationMap = new HashMap<>();
+            relationMap.put("dish", DishEntity.class);
+            relationMap.put("food_order", FoodOrderEntity.class);
+            relationMap.put("menu_item", MenuItemEntity.class);
+            relationMap.put("restaurant", RestaurantEntity.class);
+        }
     }
 
     /**
@@ -46,10 +53,12 @@ public class Control {
         }
         Scanner scanner = new Scanner(System.in);
         String[] lines = new String[menuOption.instructions.length];
+        System.out.println();
         for (int i = 0; i < menuOption.instructions.length; i++) {
-            System.out.println(menuOption.instructions[i]);
+            System.out.print(menuOption.instructions[i]);
             lines[i] = scanner.nextLine();
         }
+        System.out.println();
         switch (menuOption.selection) {
             /*
            Prompt the user for a restaurant name and city.
@@ -109,6 +118,10 @@ public class Control {
                 RestaurantEntity restaurant = getRestaurant(lines);
                 // Prompt for dish details and add the dish
                 promptAndAddDish(scanner, restaurant);
+                break;
+            }
+            case LIST_RELATION: {
+                printRelation(lines);
                 break;
             }
             default:
@@ -268,6 +281,24 @@ public class Control {
         dish.setMenuItems(menus);
         // Persist both dish and menu
         model.addDish(dish);
+    }
+
+    private void printRelation(String[] lines) {
+        if (lines.length != 1) {
+            throw new InputMismatchException("Invalid input, please enter a relation name.");
+        }
+        String relationName = lines[0];
+        if (relationName.isEmpty()) {
+            throw new InputMismatchException("Invalid input, please enter a relation name.");
+        }
+        if (!relationMap.containsKey(relationName)) {
+            throw new InputMismatchException("Invalid input of " + relationName + ", please enter a valid relation name.");
+        }
+        List<String> results = model.listRelation(relationName, relationMap.get(relationName));
+        for (String result :
+                results) {
+            System.out.println(result);
+        }
     }
 
     private boolean invalidRestaurantCity(String[] lines) {

@@ -36,6 +36,12 @@ public class Menu {
                         "Enter restaurant name: ",
                         "Enter city name: "
                 ));
+        menuMap.put("ls",
+                new MenuOption(
+                        "ls) LIST all entries for a relation",
+                Selection.LIST_RELATION,
+                        "Enter relation name ('dish', 'food_order', 'menu_item', 'restaurant'): "
+                ));
         menuMap.put("0", new MenuOption(
                 "0) Quit",
                 Selection.QUIT
@@ -59,7 +65,7 @@ public class Menu {
         return selected;
     }
 
-    public enum Selection{GET_MENUS, ADD_ORDER, GET_ORDERS, DELETE_ORDER, ADD_DISH, QUIT}
+    public enum Selection{GET_MENUS, ADD_ORDER, GET_ORDERS, DELETE_ORDER, ADD_DISH, LIST_RELATION, QUIT}
 
     protected static class MenuOption {
         String display;

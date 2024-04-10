@@ -10,13 +10,14 @@ import com.github.truefmartin.views.DisplayDishMenuOrder;
 import com.github.truefmartin.views.DisplayRestaurantDishOrder;
 import com.github.truefmartin.views.DisplayRestaurantMenu;
 import org.hibernate.HibernateException;
-import org.hibernate.NonUniqueObjectException;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+
 /**
  * The Model class is responsible for managing the database operations.
  * It uses Hibernate to interact with the database.
@@ -291,4 +292,31 @@ public class Model implements AutoCloseable{
         tx.getTransaction().commit();
     }
 
+    public List<String> listRelation(String relationName, Class<?> className) {
+        try(var tx = sessionFactory.openSession()) {
+            return listRelation(tx, relationName, className).stream().map(Object::toString).collect(Collectors.toList());
+        }
+    }
+
+    private List<?> listRelation(Session tx, String relationName, Class<?> className) {
+        var entityName = "";
+        switch (relationName){
+            case "dish":
+                entityName = "DishEntity";
+                break;
+            case "food_order":
+                entityName = "FoodOrderEntity";
+                break;
+            case "menu_item":
+                entityName = "MenuItemEntity";
+                break;
+            case "restaurant":
+                entityName = "RestaurantEntity";
+                break;
+        }
+        return tx.createQuery(
+                "FROM " + entityName + " e",
+                className
+                ).getResultList();
+    }
 }
