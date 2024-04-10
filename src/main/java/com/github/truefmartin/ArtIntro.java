@@ -20,7 +20,7 @@ public class ArtIntro {
 
         Graphics2D graphics2D = getGraphics2D(image.getGraphics(), settings);
         graphics2D.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        graphics2D.drawString(text, 6, ((int) (settings.height)));
+        graphics2D.drawString(text, 6, settings.height);
 
         for (int y = 0; y < settings.height; y++) {
             StringBuilder stringBuilder = new StringBuilder();

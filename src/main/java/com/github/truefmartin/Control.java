@@ -1,163 +1,310 @@
 package com.github.truefmartin;
 
-import com.github.truefmartin.exceptions.ColumnBoundsException;
-import com.github.truefmartin.exceptions.DatabaseIsClosedException;
-import com.github.truefmartin.exceptions.RowBoundsException;
-import com.github.truefmartin.records.TitanicRecord;
+import com.github.truefmartin.exceptions.EmptyResultsException;
+import com.github.truefmartin.models.*;
+import com.github.truefmartin.views.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.FileNotFoundException;
+import java.math.BigDecimal;
 import java.util.*;
 
 public class Control {
 
     private static final Logger logger = LogManager.getLogger(Control.class);
+    private static HashMap<String, Class<?>> relationMap = null;
+    private static final Menu menuUI = new Menu();
+    private final Model model;
 
-    private final DataBase dataBase;
-    private static final Menu menu = new Menu();
-    private static final int[] COLUMN_SIZES = {4,15,20,4,20,6,10};
-
-    public Control() {
-        dataBase = new DataBase();
+    public Control(Model model) {
+        this.model = model;
+        if (relationMap == null) {
+            relationMap = new HashMap<>();
+            relationMap.put("dish", DishEntity.class);
+            relationMap.put("food_order", FoodOrderEntity.class);
+            relationMap.put("menu_item", MenuItemEntity.class);
+            relationMap.put("restaurant", RestaurantEntity.class);
+        }
     }
 
-
     /**
-     * Start the main loop of the program. Prints the menu and gets input from the user.
+     * Start the main user-facing loop of the program. Prints the menu and gets input from the user.
      */
     public void start() {
-        Menu.Selection selection = Menu.Selection.CREATE;
-        while (selection != Menu.Selection.QUIT) {
-            menu.displayMenu();
-            selection = menu.getSelection();
+        Menu.MenuOption menuOption;
+        do {
+            menuUI.displayMenu();
+            menuOption = menuUI.getMenuOption();
             try {
-                menuResponse(selection);
-            } catch (RowBoundsException | ColumnBoundsException | DatabaseIsClosedException | FileNotFoundException e) {
+                menuResponse(menuOption);
+            } catch (InputMismatchException | EmptyResultsException e) {
                 logger.error("input caused the following error: {}", e.getMessage());
             }
-        }
+        } while (menuOption.selection != Menu.Selection.QUIT);
     }
 
     /*
      * Calls database methods depending on passed in menu selection. Throws exceptions from the database.
      * Reads input from user to pass to database.
      */
-    private void menuResponse(Menu.Selection selection) throws RowBoundsException, DatabaseIsClosedException, InputMismatchException, FileNotFoundException, ColumnBoundsException {
+    private void menuResponse(Menu.MenuOption menuOption) throws EmptyResultsException, InputMismatchException {
+        if (menuOption.selection == Menu.Selection.QUIT) {
+            return;
+        }
         Scanner scanner = new Scanner(System.in);
-        switch (selection) {
-            case CREATE:
-                if (dataBase.create(scanner.nextLine(), COLUMN_SIZES)) {
-                    System.out.println("Database successfully created.\n\t**\tOpen the database to begin working.");
-                }
-                break;
-            case OPEN:
-                if (dataBase.openDb(scanner.nextLine())) {
-                    System.out.println("Database successfully opened.");
-                } else {
-                    System.out.println("\t**\tDatabase failed to open");
-                    if (dataBase.isOpen()) {
-                        System.out.println("\t**\tYou already have a database open");
-                        System.out.println("\t**\tplease close the open database");
-                    }
-                }
-                break;
-            case CLOSE:
-                dataBase.close();
-                System.out.println("Database closed.");
-                break;
-            case READ: {
-                int row;
-                try {
-                    row = scanner.nextInt();
-                } catch (InputMismatchException e) {
-                    throw new InputMismatchException("invalid input on read row command");
-                }
-                var record = dataBase.readRow(row);
-                if (record != null) {
-                    record.print();
-                }
+        String[] lines = new String[menuOption.instructions.length];
+        System.out.println();
+        for (int i = 0; i < menuOption.instructions.length; i++) {
+            System.out.print(menuOption.instructions[i]);
+            lines[i] = scanner.nextLine();
+        }
+        System.out.println();
+        switch (menuOption.selection) {
+            /*
+           Prompt the user for a restaurant name and city.
+           Find and list all menu items available from that restaurant location.
+           Output the restaurant name once (echo the user input) and then list the dish name and price for each
+           available menu item.
+            */
+            case GET_MENUS: {
+                displayRestaurantMenus(lines);
                 break;
             }
-            case DISPLAY:
-                findAndDisplay(scanner);
-                break;
-            case REPORT:
-                var records = dataBase.getReport();
-                System.out.println(Arrays.toString(records));
-                break;
-            case UPDATE: {
-                var record = findAndDisplay(scanner);
-                // If record is populated, and user input is accepted
-                if (record != null && record.isPopulated() && record.getRowNum() >= 0) {
-                    System.out.println("\n\t**\tEnter value to update entry's attribute. Enter no input to skip attribute.");
-                    if (scanInRecord(scanner, record, false) && dataBase.updateRecord(record)) {
-                        System.out.println("Update successful.");
-                        break;
-                    }
-                }
-                System.out.println("Update failed");
+            /*
+            Prompt the user for the dishName of the item that they want to order.
+            If the dish is found, display the itemNo, restaurantName, city and price for all matches.
+            Prompt the user for the itemNo for the MenuItem that they want to order.
+            Add the itemNo, current time, and current date to the FoodOrder table.
+             */
+            case ADD_ORDER: {
+                // Get and display the results of the dish search
+                var results = getAndDisplayDishResults(lines);
+                // Get user selection and save the order
+                saveDishOrder(scanner, results);
                 break;
             }
-            case DELETE:{
-                var record = findAndDisplay(scanner);
-                // If record is populated, delete record
-                if (record != null && record.isPopulated() && record.getRowNum() >= 0) {
-                    System.out.println("\n\t**\tDeleting Record for passenger ID #" + record.passengerId);
-                    if (dataBase.deleteRecord(record)) {
-                        System.out.println("Delete successful.");
-                        break;
-                    }
-                }
-                System.out.println("Delete failed, empty record");
+            /*
+            Prompt the user for the restaurantName and city .
+            If the restaurant is found, display all orders for that restaurant.
+            Display the restaurantName once (echo the user input) and
+            then display the dishName, price, date, and time for all orders for that restaurant.
+            */
+            case GET_ORDERS: {
+                // Display all food orders for a restaurant
+                displayRestaurantOrders(lines);
                 break;
             }
-            case ADD:{
-                TitanicRecord record = new TitanicRecord();
-                if(!scanInRecord(scanner, record, true))
-                    break;
-                if (dataBase.addRecord(record)) {
-                    System.out.println("\n\t**\tAdded Record for passenger ID #" + record.passengerId);
-                    break;
-                }
-                System.out.println("Add failed, no empty space or a record already exists with that ID.");
+            /*
+             Display all food orders (orderNo, dishName, restaurantName, date, time).
+             Prompt the user for the orderNo of the order that they wish to cancel.
+             Remove that order from the FoodOrder table.
+             */
+            case DELETE_ORDER: {
+                // Get and display all orders, form a map between order numbers and orders
+                HashMap<Integer, FoodOrderEntity> orderMap = getAndDisplayOrderMap();
+                // Get user selection and delete the order
+                deleteOrder(scanner, orderMap);
                 break;
             }
-            case QUIT:
-                try {
-                    dataBase.close();
-                } catch(DatabaseIsClosedException ignored) {}
+
+            /*
+            Prompt the user for the restaurantName and city.
+            If the restaurant is found, prompt for the name, type, and price of the new dish.
+            Assume that the dish is unique.
+            Insert it into the Dish table. Insert it into the MenuItem table.
+             */
+            case ADD_DISH: {
+                // Get matching restaurant
+                RestaurantEntity restaurant = getRestaurant(lines);
+                // Prompt for dish details and add the dish
+                promptAndAddDish(scanner, restaurant);
                 break;
-            case ERROR:
+            }
+            case LIST_RELATION: {
+                printRelation(lines);
                 break;
+            }
+            default:
+                throw new InputMismatchException("Invalid input, please enter a valid menu option.");
         }
     }
 
-    private TitanicRecord findAndDisplay(Scanner scanner) throws DatabaseIsClosedException, RowBoundsException {
-        String id = scanner.nextLine();
-        var result = dataBase.findRecord(id);
-        var found = result.record;
-        if (found == null || !result.isFound || result.rowFound < 0) {
-            System.out.println("\t**\tNo passenger by ID #" + id + " was found");
-        } else {
-            found.setRowNum(result.rowFound);
-            found.print();
+    private void displayRestaurantMenus(String[] lines) throws EmptyResultsException {
+        if (invalidRestaurantCity(lines)) {
+            throw new InputMismatchException("Invalid input, please enter a restaurant name and city.");
         }
-        return found;
+        var restaurantName = lines[0];
+        var cityName = lines[1];
+        var displays = model.getMenusOfRestaurant(restaurantName, cityName);
+        System.out.println("Restaurant: " + restaurantName + ", City: " + cityName);
+        for (DisplayDishMenu display :
+                displays
+        ) {
+            System.out.println("-".repeat(20));
+            System.out.println(display);
+        }
+        System.out.println("-".repeat(20));
     }
-    // Uses scan to fill a record. Can pass in loaded scanner with space seperated column numbers to auto-select
-    // columns to write.
-    private boolean scanInRecord(Scanner scanner, TitanicRecord record, boolean includeId) throws InputMismatchException {
-        boolean hasBeenUpdated = false;
-        // If ID should be included, start on column 0
-        for (int i = includeId? 0: 1; i < record.getNumAttributes(); i++) {
-            System.out.printf("\n\t%s:\t%s -->", record.getAttributeName(i), record.getValue(i));
-            String in = scanner.nextLine();
-            // If the user didn't just press 'enter' and update attribute value succeeds
-            if (!Objects.equals(in, "") && record.setAttributeValue(i, in)) {
-                hasBeenUpdated = true;
-            }
+
+    private List<DisplayRestaurantMenu> getAndDisplayDishResults(String[] lines) throws EmptyResultsException {
+        if (lines.length != 1 || Objects.equals(lines[0], "")) {
+            throw new InputMismatchException("Invalid input, please enter a dish name.");
         }
-        return hasBeenUpdated;
+        var dishName = lines[0];
+        var results = model.getMenusOfDish(dishName);
+        System.out.println("Dish: " + dishName);
+        for (DisplayRestaurantMenu display :
+                results
+        ) {
+            System.out.println("-".repeat(20));
+            System.out.println(display);
+        }
+        System.out.println("-".repeat(20));
+        return results;
+    }
+
+    private void saveDishOrder(Scanner scanner, List<DisplayRestaurantMenu> results) throws EmptyResultsException {
+        System.out.print("Enter itemNo to add to orders: ");
+        var itemNoStr = scanner.nextLine();
+        int itemNo;
+        try {
+            itemNo = Integer.parseInt(itemNoStr);
+        } catch (NumberFormatException e) {
+            throw new InputMismatchException("input of " + itemNoStr + " was not able to be translated to an itemNo");
+        }
+
+        var possibleMenu = results.stream().filter((var m) -> m.getItemNo() == itemNo).findFirst();
+        if (possibleMenu.isEmpty()) {
+            throw new EmptyResultsException("input of " + itemNo + " did not match a menuItem");
+        }
+        var menuDisplay = possibleMenu.get();
+        MenuItemEntity menu = menuDisplay.getMenu();
+        model.addOrder(menu);
+    }
+
+    private void displayRestaurantOrders(String[] lines) throws EmptyResultsException {
+        if (invalidRestaurantCity(lines)) {
+            throw new InputMismatchException("Invalid input, please enter a restaurant name and city.");
+        }
+        var restaurantName = lines[0];
+        var cityName = lines[1];
+        List<DisplayDishMenuOrder> results = model.getOrdersOfRestaurant(restaurantName, cityName);
+        for (DisplayDishMenuOrder result :
+                results) {
+            System.out.println("-".repeat(20));
+            System.out.println(result);
+        }
+        System.out.println("-".repeat(20));
+    }
+
+    private HashMap<Integer, FoodOrderEntity> getAndDisplayOrderMap() throws EmptyResultsException {
+        List<DisplayRestaurantDishOrder> result = model.getAllOrders();
+        HashMap<Integer, FoodOrderEntity> orderMap = new HashMap<>();
+        for (DisplayRestaurantDishOrder display :
+                result
+        ) {
+            System.out.println("-".repeat(20));
+            System.out.println(display);
+            orderMap.put(display.getOrder().getOrderNo(), display.getOrder());
+        }
+        System.out.println("-".repeat(20));
+        return orderMap;
+    }
+
+    private void deleteOrder(Scanner scanner, HashMap<Integer, FoodOrderEntity> orderMap) throws EmptyResultsException {
+        // Get itemNo to add a new order to food_order relation
+        System.out.print("Enter orderNo to remove: ");
+        var orderNoStr = scanner.nextLine();
+        int orderNo;
+        try {
+            orderNo = Integer.parseInt(orderNoStr);
+        } catch (NumberFormatException e) {
+            throw new InputMismatchException("input of " + orderNoStr + " was not able to be translated to an orderNo");
+        }
+        FoodOrderEntity order;
+        if ((order = orderMap.get(orderNo)) == null) {
+            throw new EmptyResultsException("no order with number(" + orderNo + "), unable to remove order.");
+        }
+        model.deleteOrder(order);
+    }
+
+    private RestaurantEntity getRestaurant(String[] lines) throws EmptyResultsException {
+        if (invalidRestaurantCity(lines)) {
+            throw new InputMismatchException("Invalid input, please enter a restaurant name and city.");
+        }
+        var restaurantName = lines[0];
+        var cityName = lines[1];
+        return model.getRestaurant(restaurantName, cityName);
+    }
+
+    private void promptAndAddDish(Scanner scanner, RestaurantEntity restaurant) {
+        // prompt for the name, type, and price of the new dish.
+        System.out.print("Enter dish name: ");
+        var dishName = scanner.nextLine();
+
+        // Handle Types enum
+        var typesRaw = Type.values();
+        String[] types = new String[typesRaw.length];
+        StringBuilder typesConcat = new StringBuilder();
+        for (int i = 0; i < typesRaw.length; i++) {
+            types[i] = typesRaw[i].name();
+            typesConcat.append(types[i]).append("/");
+        }
+        System.out.print("Enter dish type(" + typesConcat + "): ");
+        var dishTypeStr = scanner.nextLine();
+        Type dishType;
+        try {
+            dishType = Type.valueOf(dishTypeStr);
+        } catch (IllegalArgumentException e) {
+            throw new InputMismatchException("input of " + dishTypeStr + " is not a valid dish type.");
+        }
+
+        System.out.print("Enter dish price: ");
+        var dishPriceStr = scanner.nextLine();
+        var dishPrice = 0.0f;
+        try {
+            dishPrice = Float.parseFloat(dishPriceStr);
+        } catch (NumberFormatException e) {
+            throw new InputMismatchException("input of " + dishPriceStr + " did not convert to a price for a menu item");
+        }
+        DishEntity dish = new DishEntity();
+        dish.setDishName(dishName);
+        dish.setType(dishType);
+        // Build menu
+        MenuItemEntity menu = new MenuItemEntity();
+        menu.setPrice(BigDecimal.valueOf(dishPrice));
+        menu.setRestaurant(restaurant);
+        // Associate dish to menu
+        menu.setDish(dish);
+        HashSet<MenuItemEntity> menus = new HashSet<>();
+        menus.add(menu);
+        dish.setMenuItems(menus);
+        // Persist both dish and menu
+        model.addDish(dish);
+    }
+
+    private void printRelation(String[] lines) {
+        if (lines.length != 1) {
+            throw new InputMismatchException("Invalid input, please enter a relation name.");
+        }
+        String relationName = lines[0];
+        if (relationName.isEmpty()) {
+            throw new InputMismatchException("Invalid input, please enter a relation name.");
+        }
+        if (!relationMap.containsKey(relationName)) {
+            throw new InputMismatchException("Invalid input of " + relationName + ", please enter a valid relation name.");
+        }
+        List<String> results = model.listRelation(relationName, relationMap.get(relationName));
+        for (String result :
+                results) {
+            System.out.println(result);
+        }
+    }
+
+    private boolean invalidRestaurantCity(String[] lines) {
+        return lines.length != 2 ||
+                Objects.equals(lines[0], "") ||
+                Objects.equals(lines[1], "");
     }
 }
+
